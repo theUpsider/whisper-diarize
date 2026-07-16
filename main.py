@@ -53,7 +53,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-speakers", type=int, default=None)
     parser.add_argument("--max-speakers", type=int, default=None)
     parser.add_argument("--num-speakers", type=int, default=None)
-    parser.add_argument("--skip-concat", action="store_true", help="Skip concat & audio extraction (use existing work/merged.wav)")
+    parser.add_argument("--skip-concat", action="store_true",
+                        help="Skip concat & audio extraction (use existing work/merged.wav)")
     return parser.parse_args()
 
 
