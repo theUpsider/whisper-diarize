@@ -53,6 +53,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-speakers", type=int, default=None)
     parser.add_argument("--max-speakers", type=int, default=None)
     parser.add_argument("--num-speakers", type=int, default=None)
+    parser.add_argument("--skip-concat", action="store_true", help="Skip concat & audio extraction (use existing work/merged.wav)")
     return parser.parse_args()
 
 
@@ -313,14 +314,20 @@ def main() -> int:
     args.input_dir.mkdir(parents=True, exist_ok=True)
 
     ordered_videos = discover_videos(args.input_dir)
-    merged_video = concat_videos(ordered_videos, args.work_dir)
-    audio_path = extract_audio(merged_video, args.work_dir)
+    if args.skip_concat:
+        audio_path = args.work_dir / "merged.wav"
+        if not audio_path.exists():
+            raise SystemExit(f"Audio file not found: {audio_path}")
+    else:
+        merged_video = concat_videos(ordered_videos, args.work_dir)
+        audio_path = extract_audio(merged_video, args.work_dir)
     result = transcribe_and_diarize(audio_path, args)
     transcript_text = render_transcript(result, ordered_videos)
     transcript_path, json_path = write_outputs(
         result, transcript_text, args.output_dir)
 
-    print(f"Merged video: {merged_video}")
+    if not args.skip_concat:
+        print(f"Merged video: {merged_video}")
     print(f"Extracted audio: {audio_path}")
     print(f"Transcript text: {transcript_path}")
     print(f"Transcript JSON: {json_path}")
