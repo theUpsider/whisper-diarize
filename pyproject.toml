@@ -1,0 +1,10 @@
+[project]
+name = "whisper-transcriber"
+version = "0.1.0"
+description = "Transcribe and diarize video/audio files with WhisperX"
+requires-python = ">=3.10"
+dependencies = [
+    "python-dotenv",
+    "torch",
+    "whisperx",
+]
