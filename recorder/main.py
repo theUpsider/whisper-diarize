@@ -31,6 +31,7 @@ logger = logging.getLogger("recorder.main")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DESKTOP_TEMPLATE = PROJECT_ROOT / "assets" / "whisper-recorder.desktop"
 DESKTOP_INSTALL_DIR = Path.home() / ".local" / "share" / "applications"
+AUTOSTART_DIR = Path.home() / ".config" / "autostart"
 LOCK_PATH = CONFIG_DIR / "recorder.lock"
 
 # Kept open for the process lifetime; the OS releases the flock
@@ -78,6 +79,11 @@ def _parse_args() -> argparse.Namespace:
         "--config",
         action="store_true",
         help="Print the path to the configuration file.",
+    )
+    parser.add_argument(
+        "--minimized",
+        action="store_true",
+        help="Start in the system tray without showing the recording window.",
     )
     return parser.parse_args()
 
@@ -156,6 +162,41 @@ def uninstall_desktop() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Autostart (launch minimized on login)
+# ---------------------------------------------------------------------------
+
+def install_autostart() -> None:
+    """Install a .desktop file to ~/.config/autostart/, launching minimized on login."""
+    AUTOSTART_DIR.mkdir(parents=True, exist_ok=True)
+
+    if not DESKTOP_TEMPLATE.exists():
+        logger.error("Desktop template not found: %s", DESKTOP_TEMPLATE)
+        return
+
+    dest = AUTOSTART_DIR / "whisper-recorder.desktop"
+    if dest.exists():
+        dest.unlink()
+
+    entrypoint = _resolve_entrypoint()
+    content = DESKTOP_TEMPLATE.read_text(encoding="utf-8")
+    content = content.replace("WHISPER_RECORDER_BIN", f"{entrypoint} --minimized")
+
+    dest.write_text(content, encoding="utf-8")
+    dest.chmod(0o755)
+    logger.info("Autostart file installed to %s", dest)
+
+
+def uninstall_autostart() -> None:
+    """Remove the autostart .desktop file, if present."""
+    dest = AUTOSTART_DIR / "whisper-recorder.desktop"
+    if dest.exists():
+        dest.unlink()
+        logger.info("Autostart file removed: %s", dest)
+    else:
+        logger.info("No autostart file installed at %s", dest)
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -193,7 +234,7 @@ def main() -> int:
     # Launch the GUI
     cfg = load_config()
     app = RecorderApp(cfg)
-    app.run()
+    app.run(show_modal=not args.minimized)
     return 0
 
 

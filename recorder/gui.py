@@ -116,6 +116,7 @@ class RecorderApp:
         self._lang_var: tk.StringVar | None = None
         self._model_var: tk.StringVar | None = None
         self._diarize_var: tk.BooleanVar | None = None
+        self._autostart_var: tk.BooleanVar | None = None
         self._hotkey_var: tk.StringVar | None = None
         self._hotkey_capture_btn: ttk.Button | None = None
         self._hotkey_capture_mods: set[str] = set()
@@ -143,9 +144,10 @@ class RecorderApp:
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def run(self) -> None:
+    def run(self, show_modal: bool = True) -> None:
         """Start the GUI event loop."""
-        self._show_modal()
+        if show_modal:
+            self._show_modal()
         self._start_tray_icon()
 
         # Start hotkey polling
@@ -351,6 +353,14 @@ class RecorderApp:
         self._hotkey_capture_btn.pack(side="left")
         if is_wayland():
             self._hotkey_capture_btn.state(["disabled"])
+
+        self._autostart_var = tk.BooleanVar(
+            value=self._config.autostart_enabled)
+        autostart_check = ttk.Checkbutton(
+            row3, text="Launch at startup (minimized)",
+            variable=self._autostart_var, command=self._on_autostart_toggle,
+        )
+        autostart_check.pack(side="left", padx=(16, 0))
 
         # ---- Timer + Status ----
         timer_frame = ttk.Frame(main)
@@ -733,6 +743,19 @@ class RecorderApp:
         self._config.model = self._model_var.get()
         self._config.diarize = self._diarize_var.get()
         save_config(self._config)
+
+    def _on_autostart_toggle(self) -> None:
+        """Persist the autostart setting and (un)install the login .desktop file."""
+        assert self._autostart_var is not None
+        from recorder import main as recorder_main
+
+        enabled = self._autostart_var.get()
+        self._config.autostart_enabled = enabled
+        save_config(self._config)
+        if enabled:
+            recorder_main.install_autostart()
+        else:
+            recorder_main.uninstall_autostart()
 
     # ------------------------------------------------------------------
     # Hotkey capture
