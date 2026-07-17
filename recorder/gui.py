@@ -234,7 +234,7 @@ class RecorderApp:
         self._mic_combo = ttk.Combobox(
             row1, textvariable=self._mic_var, state="readonly", width=35,
         )
-        self._mic_combo["values"] = [d.name for d in mics]
+        self._mic_combo["values"] = ["default"] + [d.name for d in mics]
         self._mic_combo.pack(side="left", padx=(4, 16))
         self._mic_combo.bind("<<ComboboxSelected>>", self._persist_settings)
 
@@ -243,7 +243,7 @@ class RecorderApp:
         self._monitor_combo = ttk.Combobox(
             row1, textvariable=self._monitor_var, state="readonly", width=35,
         )
-        self._monitor_combo["values"] = [d.name for d in monitors]
+        self._monitor_combo["values"] = ["default"] + [d.name for d in monitors]
         self._monitor_combo.pack(side="left", padx=(4, 0))
         self._monitor_combo.bind(
             "<<ComboboxSelected>>", self._persist_settings)
@@ -430,7 +430,7 @@ class RecorderApp:
             self._button_frame, text="🗑  Discard", command=self._on_discard,
         ).pack(side="left", padx=(0, 8))
         ttk.Button(
-            self._button_frame, text="New Recording", command=self._update_buttons_idle,
+            self._button_frame, text="New Recording", command=self._on_new_recording,
         ).pack(side="left")
 
     def _update_buttons_transcribing(self) -> None:
@@ -455,7 +455,7 @@ class RecorderApp:
             self._button_frame, text="📂  Open Folder", command=self._on_open_folder,
         ).pack(side="left", padx=(0, 8))
         ttk.Button(
-            self._button_frame, text="New Recording", command=self._update_buttons_idle,
+            self._button_frame, text="New Recording", command=self._on_new_recording,
         ).pack(side="left")
         self._refresh_recent_recordings()
 
@@ -469,7 +469,7 @@ class RecorderApp:
         self._status_var.set(f"Error: {msg}")
 
         ttk.Button(
-            self._button_frame, text="New Recording", command=self._update_buttons_idle,
+            self._button_frame, text="New Recording", command=self._on_new_recording,
         ).pack(side="left")
 
     # ------------------------------------------------------------------
@@ -523,6 +523,12 @@ class RecorderApp:
 
     def _on_discard(self) -> None:
         self._recorder.discard()
+        self._mixed_path = None
+        self._update_buttons_idle()
+
+    def _on_new_recording(self) -> None:
+        if self._recorder.state != RecorderState.IDLE:
+            self._recorder.discard()
         self._mixed_path = None
         self._update_buttons_idle()
 
@@ -755,17 +761,16 @@ class RecorderApp:
             mics, monitors = _refresh_devices()
             if hasattr(self, '_mic_combo') and self._mic_combo is not None:
                 assert self._mic_var is not None
-                mic_names = [d.name for d in mics]
+                mic_names = ["default"] + [d.name for d in mics]
                 self._mic_combo["values"] = mic_names
                 if self._mic_var.get() not in mic_names:
-                    self._mic_var.set(mic_names[0] if mic_names else "default")
+                    self._mic_var.set("default")
             if hasattr(self, '_monitor_combo') and self._monitor_combo is not None:
                 assert self._monitor_var is not None
-                mon_names = [d.name for d in monitors]
+                mon_names = ["default"] + [d.name for d in monitors]
                 self._monitor_combo["values"] = mon_names
                 if self._monitor_var.get() not in mon_names:
-                    self._monitor_var.set(
-                        mon_names[0] if mon_names else "default")
+                    self._monitor_var.set("default")
             logger.info("Device lists refreshed: %d mics, %d monitors",
                         len(mics), len(monitors))
         except Exception:
