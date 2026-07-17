@@ -13,3 +13,16 @@ dependencies = [
 [project.scripts]
 whisper-recorder = "recorder.main:main"
 whisper-transcribe = "main:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

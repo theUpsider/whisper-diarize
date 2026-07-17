@@ -1,96 +1,99 @@
 # whisper-diarize
 
-Transcribe and diarize MP4 video files using [WhisperX](https://github.com/m-bain/whisperX). Drops `.mp4` files into `input/`, runs the script, and gets a timestamped, speaker-labeled transcript in `output/`.
+Two tools in one repo:
 
-## Features
-
-- Concatenates all `.mp4` files from `input/` (ordered by creation time from ffprobe, fallback to mtime)
-- Extracts 16kHz mono WAV
-- Transcribes with WhisperX (large-v3 by default)
-- Aligns word-level timestamps
-- Diarizes speakers via pyannote.audio (Hugging Face token required)
-- Outputs readable transcript + raw JSON
+1. **`whisper-transcribe`** — Batch-transcribe and diarize MP4 files via [WhisperX](https://github.com/m-bain/whisperX). Drop `.mp4` files into `input/`, run, get a timestamped speaker-labeled transcript.
+2. **`whisper-recorder`** — GUI app for live recording (microphone + system audio) then transcribing. Global hotkey toggles a recording modal; results land in `~/WhisperRecordings/`.
 
 ## Requirements
 
-- **Python ≥ 3.10**
-- **[uv](https://docs.astral.sh/uv/)** — package manager / virtualenv
-- **ffmpeg + ffprobe** — must be on `$PATH`
-- **GPU** recommended (CUDA); CPU works but slow
-- **Hugging Face token** — accept the user agreements for:
-  - [pyannote/segmentation-3.0](https://hf.co/pyannote/segmentation-3.0)
-  - [pyannote/speaker-diarization-3.1](https://hf.co/pyannote/speaker-diarization-3.1)
-  - The Whisper model you pick (e.g. `large-v3`)
+| What | Why |
+|---|---|
+| **Python ≥ 3.10** | Project runtime |
+| **[uv](https://docs.astral.sh/uv/)** | Package manager / virtualenv |
+| **ffmpeg + ffprobe** | Audio extraction, concatenation, encoding |
+| **PulseAudio or PipeWire** | Required by `whisper-recorder` for audio capture + device list |
+| **tkinter** (python3-tk) | Required by `whisper-recorder` GUI |
+| **GPU** recommended (CUDA) | CPU works but is slow |
+| **Hugging Face token** | Needed for diarization + model access |
+
+Accept user agreements on Hugging Face:
+- [pyannote/segmentation-3.0](https://hf.co/pyannote/segmentation-3.0)
+- [pyannote/speaker-diarization-3.1](https://hf.co/pyannote/speaker-diarization-3.1)
+- The Whisper model you pick (e.g. `large-v3`)
 
 ## Install
 
 ```bash
-# Clone
+# 1. System dependencies (Ubuntu / Debian)
+sudo apt install ffmpeg pulseaudio python3-tk
+
+# For PipeWire users:
+sudo apt install pipewire-pulse
+
+# 2. Clone + install Python deps
 git clone https://github.com/theUpsider/whisper-diarize.git
 cd whisper-diarize
-
-# Sync deps with uv
 uv sync
 ```
 
 ## Environment file
 
-Create `.env` in the repo root:
+Copy the template and fill in your token:
+
+```bash
+cp .env.example .env
+# Edit .env → add your Hugging Face token
+```
 
 ```env
 HUGGINGFACE_TOKEN=hf_your_token_here
 ```
 
-Get your token at https://hf.co/settings/tokens. The same token is also accepted via `--hf-token` CLI flag.
+Get your token at https://hf.co/settings/tokens. Also accepted via `--hf-token` CLI flag or `HF_TOKEN` env var.
 
-## Usage
+---
+
+## 1. CLI: `whisper-transcribe` — Batch MP4 Processing
+
+Transcribes + diarizes all `.mp4` files in `input/`, ordered by creation time.
+
+### Usage
 
 ```bash
-# 1. Place MP4 files in input/
-mkdir -p input
+# Place MP4 files in input/
 cp /path/to/videos/*.mp4 input/
 
-# 2. Run (GPU auto-detected; uses CUDA if available)
-uv run python main.py
+# Run
+uv run whisper-transcribe
 
-# 3. Find results in output/
-#    - final_transcript.txt  — human-readable
-#    - final_transcript.json — full WhisperX result
+# Or with options:
+uv run whisper-transcribe --language en --num-speakers 3
 ```
+
+After running, input files are **moved** to `input_processed/`. Output lands in `output/<timestamp>/`.
 
 ### Options
 
-| Flag             | Default    | Description                                            |
-| ---------------- | ---------- | ------------------------------------------------------ |
-| `--input-dir`    | `./input`  | Folder with `.mp4` files                               |
-| `--work-dir`     | `./work`   | Intermediate files (merged video, WAV)                 |
-| `--output-dir`   | `./output` | Final transcript files                                 |
-| `--language`     | `de`       | Language code for transcription                        |
-| `--model`        | `large-v3` | Whisper model name                                     |
-| `--batch-size`   | `8`        | Transcription batch size                               |
-| `--compute-type` | `float16`  | `float16`, `float32`, or `int8`                        |
-| `--device`       | _auto_     | `cuda` or `cpu` (default: CUDA if available)           |
-| `--hf-token`     | _env_      | Hugging Face token (falls back to `HUGGINGFACE_TOKEN`) |
-| `--min-speakers` | —          | Minimum speaker count for diarization                  |
-| `--max-speakers` | —          | Maximum speaker count for diarization                  |
-| `--num-speakers` | —          | Exact speaker count for diarization                    |
-| `--skip-concat`  | —          | Skip concat, use existing `work/merged.wav`            |
+| Flag | Default | Description |
+|---|---|---|
+| `--input-dir` | `./input` | Folder with `.mp4` files |
+| `--work-dir` | `./work` | Intermediate files (merged video, WAV) |
+| `--output-dir` | `./output` | Final transcript files |
+| `--language` | `de` | Language code |
+| `--model` | `large-v3` | Whisper model |
+| `--batch-size` | `8` | Batch size |
+| `--compute-type` | `float16` | `float16`, `float32`, or `int8` |
+| `--device` | _auto_ | `cuda` or `cpu` |
+| `--hf-token` | _env_ | Hugging Face token |
+| `--min-speakers` | — | Min speaker count |
+| `--max-speakers` | — | Max speaker count |
+| `--num-speakers` | — | Exact speaker count |
+| `--skip-concat` | — | Skip concat, use existing `work/<ts>/merged.wav` |
 
-### Example: English, exact 3 speakers, CPU only
+### Output
 
-```bash
-uv run python main.py --language en --num-speakers 3 --device cpu
-```
-
-### Example: Skip concat (re-run diarization on existing audio)
-
-```bash
-uv run python main.py --skip-concat --num-speakers 4
-```
-
-## Output format
-
-`final_transcript.txt`:
+`output/<timestamp>/final_transcript.txt`:
 
 ```
 Source files in concatenation order:
@@ -103,7 +106,73 @@ Transcript:
 [00:00:05.200 - 00:00:12.800] SPEAKER_01: Thanks for joining the call today.
 ```
 
-`final_transcript.json` — full WhisperX alignment + diarization result.
+`output/<timestamp>/final_transcript.json` — full WhisperX alignment + diarization result.
+
+### Example: English, exact 3 speakers, CPU only
+
+```bash
+uv run whisper-transcribe --language en --num-speakers 3 --device cpu
+```
+
+### Example: Skip concat (re-run diarization on existing audio)
+
+```bash
+uv run whisper-transcribe --skip-concat --num-speakers 4
+```
+
+---
+
+## 2. GUI: `whisper-recorder` — Live Recording
+
+Tkinter app for recording your microphone + system audio, then transcribing.
+
+### Launch
+
+```bash
+uv run whisper-recorder
+```
+
+- Press **Ctrl+Alt+R** (configurable) to toggle the recording modal
+- Select mic and system-audio sources from dropdowns
+- Hit **Record** → **Pause** (mic-only) / **Resume** → **Stop** → **Transcribe**
+- Transcripts land in `~/WhisperRecordings/<timestamp>/`
+
+### Desktop launcher (Linux)
+
+```bash
+uv run whisper-recorder --install-desktop
+```
+
+Adds a `Whisper Recorder` entry to your application launcher.
+
+### Configuration
+
+Stored at `~/.config/whisper-recorder/config.json`. Defaults:
+
+```json
+{
+  "hotkey": "<ctrl>+<alt>+r",
+  "mic_device": "default",
+  "monitor_device": "default",
+  "language": "de",
+  "model": "large-v3",
+  "compute_type": "float16",
+  "batch_size": 8,
+  "output_dir": "~/WhisperRecordings",
+  "auto_transcribe": false,
+  "min_speakers": null,
+  "max_speakers": null,
+  "num_speakers": null
+}
+```
+
+Edit this file to change defaults. The Hugging Face token is **never** stored in config — it always comes from the `HUGGINGFACE_TOKEN` or `HF_TOKEN` environment variable.
+
+### Wayland note
+
+Global hotkeys (Ctrl+Alt+R) **do not work on Wayland**. The app still runs — just launch it manually and click **Record** in the modal. A warning is shown in the UI.
+
+---
 
 ## Generate a meeting protocol (Besprechungsprotokoll)
 
@@ -124,27 +193,42 @@ The agent will:
 
 ### Using the skill outside this workspace
 
-The `.github/skills/transkript-protokoll/` folder is self-contained. You can copy it into any other project's `.github/skills/` directory or post it to **Tagity** / **Touchivity** — both platforms can create a skill from this folder structure and make it available across all your workspaces.
+The `.github/skills/transkript-protokoll/` folder is self-contained. Copy it into any other project's `.github/skills/` directory or post it to **Tagity** / **Touchitivity** — both platforms can create a skill from this folder structure.
+
+---
 
 ## Project structure
 
 ```
 whisper-diarize/
-├── main.py                               # Entry point
-├── pyproject.toml                        # uv project config + deps
-├── .env                                  # HUGGINGFACE_TOKEN (gitignored)
+├── main.py                               # CLI entry point (whisper-transcribe)
+├── recorder/                             # GUI live-recorder module
+│   ├── main.py                           # Entry point (whisper-recorder)
+│   ├── gui.py                            # tkinter modal UI
+│   ├── audio.py                          # ffmpeg dual-source recording
+│   ├── devices.py                        # PulseAudio source enumeration
+│   ├── pipeline.py                       # Background transcription runner
+│   ├── hotkey.py                         # Global hotkey (X11 only)
+│   └── config.py                         # ~/.config/whisper-recorder/config.json
+├── assets/
+│   └── whisper-recorder.desktop          # Desktop file template
+├── pyproject.toml                        # uv project config + deps + entry points
+├── .env.example                          # HUGGINGFACE_TOKEN template
 ├── .github/
 │   ├── copilot-instructions.md           # Copilot agent instructions
 │   └── skills/
 │       └── transkript-protokoll/         # Agent skill: transcript → protocol
-│           ├── SKILL.md                  # Skill definition
-│           ├── agents/                   # Agent config
+│           ├── SKILL.md
+│           ├── agents/
 │           ├── assets/
-│           │   └── protokoll-vorlage.md  # Protocol template
+│           │   └── protokoll-vorlage.md
 │           └── references/
-│               ├── agent-prompt.md       # Standalone agent prompt
-│               └── team-sprecherzuordnung.md  # Team speaker mapping
-├── input/                                # Drop .mp4 files here
-├── work/                                 # Intermediate (merged.mp4, merged.wav)
-└── output/                               # final_transcript.txt + .json
+│               ├── agent-prompt.md
+│               └── team-sprecherzuordnung.md
+├── input/                                # Drop .mp4 files here (CLI)
+├── input_processed/                      # Processed files moved here (CLI)
+├── work/                                 # Intermediate per-run (merged.mp4, merged.wav)
+├── output/                               # Transcripts per-run
+└── tests/                                # Test files
 ```
+

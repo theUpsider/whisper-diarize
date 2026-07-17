@@ -51,9 +51,9 @@ class AudioRecorder:
         self._mic_proc: subprocess.Popen[str] | None = None
         self._sys_proc: subprocess.Popen[str] | None = None
         self._state = RecorderState.IDLE
-        self._start_time: float = 0.0
-        self._pause_offset: float = 0.0  # accumulated paused time
-        self._pause_start: float = 0.0
+        self._start_time: float = 0.0  # monotonic timestamp of last start/resume
+        self._accumulated: float = 0.0  # total active recording time before last pause
+        self._pause_start: float = 0.0  # monotonic timestamp of last pause
 
         # File paths
         self._mic_path = self._work_dir / "mic.wav"
@@ -80,10 +80,11 @@ class AudioRecorder:
             if self._state == RecorderState.IDLE:
                 return 0.0
             if self._state == RecorderState.PAUSED:
-                return self._pause_offset - self._start_time
+                return self._accumulated + (self._pause_start - self._start_time)
             if self._state == RecorderState.STOPPED:
-                return self._pause_offset - self._start_time
-            return time.monotonic() - self._start_time  # RECORDING
+                return self._accumulated
+            # RECORDING: last active segment since start_time
+            return self._accumulated + (time.monotonic() - self._start_time)
 
     def set_status_callback(self, cb: Callable[[RecorderStatus], None] | None) -> None:
         self._status_callback = cb
@@ -100,7 +101,7 @@ class AudioRecorder:
                 raise RuntimeError(f"Cannot start in state {self._state}")
             self._state = RecorderState.RECORDING
             self._start_time = time.monotonic()
-            self._pause_offset = 0.0
+            self._accumulated = 0.0
             self._mic_segments = []
 
         # Clean stale files
@@ -124,8 +125,10 @@ class AudioRecorder:
         with self._lock:
             if self._state != RecorderState.RECORDING:
                 return
+            now = time.monotonic()
+            self._accumulated += now - self._start_time
             self._state = RecorderState.PAUSED
-            self._pause_start = time.monotonic()
+            self._pause_start = now
 
         self._stop_process(self._mic_proc)
         self._mic_proc = None
@@ -172,7 +175,7 @@ class AudioRecorder:
         with self._lock:
             self._state = RecorderState.IDLE
             self._start_time = 0.0
-            self._pause_offset = 0.0
+            self._accumulated = 0.0
             self._mic_segments = []
 
         self._notify()
@@ -224,8 +227,8 @@ class AudioRecorder:
         with self._lock:
             if self._state != RecorderState.PAUSED:
                 return
-            self._pause_offset += time.monotonic() - self._pause_start
             self._state = RecorderState.RECORDING
+            self._start_time = time.monotonic()
 
         segment_idx = len(self._mic_segments)
         segment_path = self._work_dir / f"mic_{segment_idx:03d}.wav"
