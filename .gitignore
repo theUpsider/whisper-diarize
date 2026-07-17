@@ -8,3 +8,5 @@ output/
 *.mov
 *.mkv
 whisper_transcriber.egg-info/
+.tokensave/
+.claude/
