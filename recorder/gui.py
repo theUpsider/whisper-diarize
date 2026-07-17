@@ -10,8 +10,10 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox
 
+from pynput.keyboard import HotKey
+
 from recorder.audio import AudioRecorder, RecorderState, RecorderStatus
-from recorder.config import AppConfig, load_config
+from recorder.config import AppConfig, load_config, save_config
 from recorder.devices import AudioDevice, get_mics, get_monitors, list_devices
 from recorder.hotkey import HotkeyManager, is_wayland
 from recorder.pipeline import TranscriptionRunner
@@ -26,6 +28,24 @@ logger = logging.getLogger(__name__)
 
 PAD_X = 12
 PAD_Y = 8
+
+# Tk keysym -> pynput modifier name, for hotkey capture.
+MODIFIER_KEYSYMS = {
+    "Control_L": "ctrl", "Control_R": "ctrl",
+    "Alt_L": "alt", "Alt_R": "alt",
+    "Shift_L": "shift", "Shift_R": "shift",
+    "Super_L": "cmd", "Super_R": "cmd",
+}
+
+# Tk keysym -> pynput named-key spelling, for non-character hotkey keys.
+SPECIAL_KEYSYMS = {
+    "Escape": "esc", "Return": "enter", "Tab": "tab",
+    "BackSpace": "backspace", "Delete": "delete", "Insert": "insert",
+    "space": "space", "Up": "up", "Down": "down", "Left": "left",
+    "Right": "right", "Home": "home", "End": "end",
+    "Prior": "page_up", "Next": "page_down",
+    **{f"F{i}": f"f{i}" for i in range(1, 21)},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -78,6 +98,9 @@ class RecorderApp:
         self._monitor_combo: ttk.Combobox | None = None
         self._lang_var: tk.StringVar | None = None
         self._model_var: tk.StringVar | None = None
+        self._hotkey_var: tk.StringVar | None = None
+        self._hotkey_capture_btn: ttk.Button | None = None
+        self._hotkey_capture_mods: set[str] = set()
         self._timer_var: tk.StringVar | None = None
         self._status_var: tk.StringVar | None = None
         self._progress: ttk.Progressbar | None = None
@@ -160,11 +183,13 @@ class RecorderApp:
     def _build_modal(self) -> None:
         self._modal = tk.Toplevel(self._root)
         self._modal.title("Whisper Recorder")
-        self._modal.resizable(False, False)
         self._modal.transient(self._root)
 
-        # Make truly modal
-        self._root.wm_attributes("-disabled", True)
+        # Make truly modal (Windows only; no-op on X11/Wayland)
+        try:
+            self._root.wm_attributes("-disabled", True)
+        except tk.TclError:
+            pass
 
         def _release() -> None:
             try:
@@ -202,6 +227,7 @@ class RecorderApp:
         )
         self._mic_combo["values"] = [d.name for d in mics]
         self._mic_combo.pack(side="left", padx=(4, 16))
+        self._mic_combo.bind("<<ComboboxSelected>>", self._persist_settings)
 
         ttk.Label(row1, text="System:").pack(side="left")
         self._monitor_var = tk.StringVar(value=self._config.monitor_device)
@@ -210,6 +236,8 @@ class RecorderApp:
         )
         self._monitor_combo["values"] = [d.name for d in monitors]
         self._monitor_combo.pack(side="left", padx=(4, 0))
+        self._monitor_combo.bind(
+            "<<ComboboxSelected>>", self._persist_settings)
 
         btn_refresh = ttk.Button(
             row1, text="↻", width=3, command=self._refresh_device_lists)
@@ -227,6 +255,7 @@ class RecorderApp:
         lang_menu["values"] = ["de", "en", "fr",
                                "es", "it", "nl", "pl", "auto"]
         lang_menu.pack(side="left", padx=(4, 16))
+        lang_menu.bind("<<ComboboxSelected>>", self._persist_settings)
 
         ttk.Label(row2, text="Model:").pack(side="left")
         self._model_var = tk.StringVar(value=self._config.model)
@@ -237,6 +266,26 @@ class RecorderApp:
             "tiny", "base", "small", "medium", "large-v2", "large-v3", "turbo",
         ]
         model_menu.pack(side="left", padx=(4, 0))
+        model_menu.bind("<<ComboboxSelected>>", self._persist_settings)
+
+        # ---- Hotkey row ----
+        row3 = ttk.Frame(main)
+        row3.pack(fill="x", pady=(0, PAD_Y))
+
+        ttk.Label(row3, text="Hotkey:").pack(side="left")
+        self._hotkey_var = tk.StringVar(value=self._config.hotkey)
+        hotkey_display = ttk.Label(
+            row3, textvariable=self._hotkey_var, width=22,
+            relief="sunken", anchor="center", padding=(4, 2),
+        )
+        hotkey_display.pack(side="left", padx=(4, 8))
+
+        self._hotkey_capture_btn = ttk.Button(
+            row3, text="Change…", command=self._start_hotkey_capture,
+        )
+        self._hotkey_capture_btn.pack(side="left")
+        if is_wayland():
+            self._hotkey_capture_btn.state(["disabled"])
 
         # ---- Timer + Status ----
         timer_frame = ttk.Frame(main)
@@ -261,6 +310,20 @@ class RecorderApp:
         self._button_frame.pack(fill="x", pady=(PAD_Y, 0))
 
         self._update_buttons_idle()
+
+        # Force geometry negotiation before locking size/centering — without
+        # this the window manager can map the Toplevel at its pre-content
+        # 1x1 size instead of auto-sizing to fit the packed widgets.
+        self._modal.update_idletasks()
+        w = self._modal.winfo_reqwidth()
+        h = self._modal.winfo_reqheight()
+        x = (self._modal.winfo_screenwidth() - w) // 2
+        y = (self._modal.winfo_screenheight() - h) // 3
+        self._modal.geometry(f"{w}x{h}+{x}+{y}")
+        self._modal.resizable(False, False)
+        self._modal.deiconify()
+        self._modal.lift()
+        self._modal.focus_force()
 
     # ------------------------------------------------------------------
     # Button state management
@@ -500,6 +563,88 @@ class RecorderApp:
     def _on_recorder_status(self, status: RecorderStatus) -> None:
         del status  # unused — reserved for future use
         pass  # Handled by button state transitions; reserved for future use
+
+    # ------------------------------------------------------------------
+    # Settings persistence
+    # ------------------------------------------------------------------
+
+    def _persist_settings(self, _event: object = None) -> None:
+        """Save current mic/monitor/language/model selection to disk."""
+        assert self._mic_var is not None
+        assert self._monitor_var is not None
+        assert self._lang_var is not None
+        assert self._model_var is not None
+        self._config.mic_device = self._mic_var.get()
+        self._config.monitor_device = self._monitor_var.get()
+        self._config.language = self._lang_var.get()
+        self._config.model = self._model_var.get()
+        save_config(self._config)
+
+    # ------------------------------------------------------------------
+    # Hotkey capture
+    # ------------------------------------------------------------------
+
+    def _start_hotkey_capture(self) -> None:
+        assert self._hotkey_var is not None
+        assert self._modal is not None
+        self._hotkey_capture_mods = set()
+        self._hotkey_var.set("Press keys… (Esc cancels)")
+        if self._hotkey_capture_btn is not None:
+            self._hotkey_capture_btn.state(["disabled"])
+        self._modal.bind("<KeyPress>", self._on_hotkey_capture_key)
+        self._modal.focus_set()
+
+    def _end_hotkey_capture(self) -> None:
+        if self._modal is not None:
+            self._modal.unbind("<KeyPress>")
+        if self._hotkey_capture_btn is not None:
+            self._hotkey_capture_btn.state(["!disabled"])
+
+    def _on_hotkey_capture_key(self, event: tk.Event) -> None:
+        assert self._hotkey_var is not None
+        keysym = event.keysym
+
+        if keysym == "Escape":
+            self._hotkey_var.set(self._config.hotkey)
+            self._end_hotkey_capture()
+            return
+
+        if keysym in MODIFIER_KEYSYMS:
+            self._hotkey_capture_mods.add(MODIFIER_KEYSYMS[keysym])
+            return
+
+        if keysym in SPECIAL_KEYSYMS:
+            key = f"<{SPECIAL_KEYSYMS[keysym]}>"
+        elif len(keysym) == 1:
+            key = keysym.lower()
+        else:
+            return  # unrecognized key — keep waiting for a usable one
+
+        if not self._hotkey_capture_mods:
+            messagebox.showwarning(
+                "Hotkey",
+                "Hotkey must include at least one modifier (Ctrl/Alt/Shift/Super).",
+            )
+            self._hotkey_var.set(self._config.hotkey)
+            self._end_hotkey_capture()
+            return
+
+        combo = "+".join(
+            f"<{m}>" for m in sorted(self._hotkey_capture_mods)) + f"+{key}"
+
+        try:
+            HotKey.parse(combo)
+        except ValueError:
+            messagebox.showerror("Hotkey", f"Unsupported combination: {combo}")
+            self._hotkey_var.set(self._config.hotkey)
+            self._end_hotkey_capture()
+            return
+
+        self._config.hotkey = combo
+        save_config(self._config)
+        self._hotkey.hotkey = combo
+        self._hotkey_var.set(combo)
+        self._end_hotkey_capture()
 
     # ------------------------------------------------------------------
     # Device list refresh

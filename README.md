@@ -148,7 +148,7 @@ Adds a `Whisper Recorder` entry to your application launcher.
 
 ### Configuration
 
-Stored at `~/.config/whisper-recorder/config.json`. Defaults:
+Stored at `~/.config/whisper-recorder/config.json`, created automatically with these defaults on first launch:
 
 ```json
 {
@@ -167,7 +167,7 @@ Stored at `~/.config/whisper-recorder/config.json`. Defaults:
 }
 ```
 
-Edit this file to change defaults. The Hugging Face token is **never** stored in config — it always comes from the `HUGGINGFACE_TOKEN` or `HF_TOKEN` environment variable.
+Edit this file to change defaults. Microphone, system-audio device, language, and model selections made in the GUI are saved back to this file automatically, so they persist across restarts. The hotkey is configured via this file only (no in-GUI editor). The Hugging Face token is **never** stored in config — it always comes from the `HUGGINGFACE_TOKEN` or `HF_TOKEN` environment variable.
 
 ### Wayland note
 

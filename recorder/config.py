@@ -57,9 +57,11 @@ class AppConfig:
 
 
 def load_config() -> AppConfig:
-    """Load config from disk, falling back to defaults for missing keys."""
+    """Load config from disk, creating it with defaults on first launch."""
     if not CONFIG_PATH.exists():
-        return AppConfig()
+        cfg = AppConfig()
+        save_config(cfg)
+        return cfg
 
     try:
         raw = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
