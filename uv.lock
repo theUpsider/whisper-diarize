@@ -4234,7 +4234,7 @@ wheels = [
 [[package]]
 name = "whisper-transcriber"
 version = "0.2.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pynput" },
     { name = "python-dotenv" },

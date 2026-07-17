@@ -14,6 +14,13 @@ dependencies = [
 whisper-recorder = "recorder.main:main"
 whisper-transcribe = "main:main"
 
+[tool.uv]
+package = true
+
+[tool.setuptools]
+py-modules = ["main"]
+packages = ["recorder"]
+
 [project.optional-dependencies]
 test = [
     "pytest>=7.0",

@@ -57,15 +57,34 @@ def _parse_args() -> argparse.Namespace:
 # Desktop file
 # ---------------------------------------------------------------------------
 
+def _resolve_entrypoint() -> str:
+    """Return the path to the installed ``whisper-recorder`` script.
+
+    Prefers the venv bin directory (next to sys.executable), falls back to
+    finding the script via ``shutil.which``, and finally returns
+    ``sys.executable`` so the desktop file is at least launchable.
+    """
+    venv_bin = Path(sys.executable).parent
+    entry = venv_bin / "whisper-recorder"
+    if entry.exists():
+        return str(entry)
+    found = shutil.which("whisper-recorder")
+    if found:
+        return found
+    return sys.executable
+
+
 def install_desktop() -> None:
-    """Install the .desktop file from the template to ~/.local/share/applications/."""
+    """Install the .desktop file to ~/.local/share/applications/."""
     DESKTOP_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 
     if not DESKTOP_TEMPLATE.exists():
         logger.error("Desktop template not found: %s", DESKTOP_TEMPLATE)
         return
 
+    entrypoint = _resolve_entrypoint()
     content = DESKTOP_TEMPLATE.read_text(encoding="utf-8")
+    content = content.replace("WHISPER_RECORDER_BIN", entrypoint)
 
     dest = DESKTOP_INSTALL_DIR / "whisper-recorder.desktop"
     dest.write_text(content, encoding="utf-8")

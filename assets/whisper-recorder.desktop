@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Whisper Recorder
 Comment=Record microphone + system audio, then transcribe with WhisperX
-Exec=uv run whisper-recorder
+Exec=WHISPER_RECORDER_BIN
 Icon=audio-input-microphone
 Terminal=false
 Type=Application
