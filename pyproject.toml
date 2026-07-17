@@ -8,6 +8,7 @@ dependencies = [
     "pynput>=1.7",
     "torch",
     "whisperx",
+    "pystray>=0.19.5",
 ]
 
 [project.scripts]

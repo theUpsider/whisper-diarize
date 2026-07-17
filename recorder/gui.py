@@ -6,11 +6,14 @@ import logging
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import ttk, messagebox
 
+import pystray
+from PIL import Image, ImageDraw
 from pynput.keyboard import HotKey
 
 from recorder.audio import AudioRecorder, RecorderState, RecorderStatus
@@ -66,6 +69,19 @@ def _refresh_devices() -> tuple[list[AudioDevice], list[AudioDevice]]:
         return [default], [default_mon]
 
 
+def _tray_icon_image() -> Image.Image:
+    """Draw a simple microphone glyph for the tray icon."""
+    size = 64
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    draw.rounded_rectangle((24, 8, 40, 38), radius=8, fill=(220, 60, 60, 255))
+    draw.line((32, 38, 32, 50), fill=(60, 60, 60, 255), width=4)
+    draw.line((20, 52, 44, 52), fill=(60, 60, 60, 255), width=4)
+    draw.arc((16, 24, 48, 52), start=0, end=180,
+              fill=(60, 60, 60, 255), width=4)
+    return img
+
+
 # ---------------------------------------------------------------------------
 # Main App
 # ---------------------------------------------------------------------------
@@ -114,6 +130,7 @@ class RecorderApp:
         self._recent_var: tk.StringVar | None = None
         self._recent_combo: ttk.Combobox | None = None
         self._recent_paths: list[Path] = []
+        self._tray_icon: pystray.Icon | None = None
 
         # Mic source stored for resume
         self._current_mic_source: str = self._config.mic_device
@@ -129,6 +146,7 @@ class RecorderApp:
     def run(self) -> None:
         """Start the GUI event loop."""
         self._show_modal()
+        self._start_tray_icon()
 
         # Start hotkey polling
         self._hotkey.start()
@@ -139,9 +157,31 @@ class RecorderApp:
         except KeyboardInterrupt:
             self._quit()
 
+    def _start_tray_icon(self) -> None:
+        """Show a system-tray icon with a Close item to quit the app."""
+        menu = pystray.Menu(
+            pystray.MenuItem("Open", self._tray_open, default=True),
+            pystray.MenuItem("Close", self._tray_close),
+        )
+        tray_icon = pystray.Icon(
+            "whisper-recorder", _tray_icon_image(), "Whisper Recorder", menu)
+        self._tray_icon = tray_icon
+        threading.Thread(target=tray_icon.run, daemon=True).start()
+
+    def _tray_open(self, _icon: pystray.Icon, _item: object) -> None:
+        # pystray callback runs off the Tk thread; hop back before touching Tk state.
+        self._root.after(0, self._open_modal)
+
+    def _tray_close(self, _icon: pystray.Icon, _item: object) -> None:
+        # pystray callback runs off the Tk thread; hop back for a safe quit
+        # (which also stops the tray icon).
+        self._root.after(0, self._quit)
+
     def _quit(self) -> None:
         self._recorder.discard()
         self._hotkey.stop()
+        if self._tray_icon is not None:
+            self._tray_icon.stop()
         if self._root:
             self._root.destroy()
         sys.exit(0)
@@ -161,6 +201,15 @@ class RecorderApp:
             return
         self._build_modal()
         self._modal_visible = True
+
+    def _open_modal(self) -> None:
+        """Show the modal, or bring it to the front if already open."""
+        if self._modal_visible and self._modal is not None:
+            self._modal.deiconify()
+            self._modal.lift()
+            self._modal.focus_force()
+            return
+        self._show_modal()
 
     def _hide_modal(self) -> None:
         if not self._modal_visible:
