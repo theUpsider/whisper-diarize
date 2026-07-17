@@ -98,6 +98,7 @@ class RecorderApp:
         self._monitor_combo: ttk.Combobox | None = None
         self._lang_var: tk.StringVar | None = None
         self._model_var: tk.StringVar | None = None
+        self._diarize_var: tk.BooleanVar | None = None
         self._hotkey_var: tk.StringVar | None = None
         self._hotkey_capture_btn: ttk.Button | None = None
         self._hotkey_capture_mods: set[str] = set()
@@ -271,6 +272,13 @@ class RecorderApp:
         ]
         model_menu.pack(side="left", padx=(4, 0))
         model_menu.bind("<<ComboboxSelected>>", self._persist_settings)
+
+        self._diarize_var = tk.BooleanVar(value=self._config.diarize)
+        diarize_check = ttk.Checkbutton(
+            row2, text="Diarize speakers", variable=self._diarize_var,
+            command=self._persist_settings,
+        )
+        diarize_check.pack(side="left", padx=(16, 0))
 
         # ---- Hotkey row ----
         row3 = ttk.Frame(main)
@@ -525,6 +533,8 @@ class RecorderApp:
             min_speakers=self._config.min_speakers,
             max_speakers=self._config.max_speakers,
             num_speakers=self._config.num_speakers,
+            diarize=(self._diarize_var.get()
+                     if self._diarize_var else self._config.diarize),
         )
 
         def progress(stage: str, fraction: float | None) -> None:
@@ -612,10 +622,12 @@ class RecorderApp:
         assert self._monitor_var is not None
         assert self._lang_var is not None
         assert self._model_var is not None
+        assert self._diarize_var is not None
         self._config.mic_device = self._mic_var.get()
         self._config.monitor_device = self._monitor_var.get()
         self._config.language = self._lang_var.get()
         self._config.model = self._model_var.get()
+        self._config.diarize = self._diarize_var.get()
         save_config(self._config)
 
     # ------------------------------------------------------------------

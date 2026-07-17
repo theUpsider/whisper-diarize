@@ -43,6 +43,7 @@ class TranscriptionConfig:
     min_speakers: int | None = None
     max_speakers: int | None = None
     num_speakers: int | None = None
+    diarize: bool = True
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +66,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--min-speakers", type=int, default=None)
     parser.add_argument("--max-speakers", type=int, default=None)
     parser.add_argument("--num-speakers", type=int, default=None)
+    parser.add_argument(
+        "--no-diarize", dest="diarize", action="store_false", default=True,
+        help="Skip speaker diarization (no HF token required)")
     parser.add_argument("--skip-concat", action="store_true",
                         help="Skip concat & audio extraction (use existing work/merged.wav)")
     return parser.parse_args()
@@ -247,17 +251,17 @@ def transcribe_and_diarize(
             min_speakers=args.min_speakers,
             max_speakers=args.max_speakers,
             num_speakers=args.num_speakers,
+            diarize=args.diarize,
         )
     if config is None:
         raise ValueError("Either config or args must be provided")
 
-    if not config.hf_token:
+    if config.diarize and not config.hf_token:
         raise SystemExit(
             "Missing Hugging Face token. Set HUGGINGFACE_TOKEN or pass --hf-token."
         )
 
     import whisperx  # lazy — avoid loading ML stack at import time
-    from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 
     device = choose_device(config.device)
     model = whisperx.load_model(
@@ -282,6 +286,11 @@ def transcribe_and_diarize(
         device,
         return_char_alignments=False,
     )
+
+    if not config.diarize:
+        return cast("dict[str, Any]", aligned)
+
+    from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 
     diarize_model = DiarizationPipeline(
         token=config.hf_token,

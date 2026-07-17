@@ -125,6 +125,7 @@ class TestModalBuild:
         assert app._monitor_var is not None
         assert app._lang_var is not None
         assert app._model_var is not None
+        assert app._diarize_var is not None
         assert app._timer_var is not None
         assert app._status_var is not None
         assert app._progress is not None
