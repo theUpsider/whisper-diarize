@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 import sys
 import time
@@ -551,6 +552,9 @@ class RecorderApp:
                 logger.error("Transcription failed:\n%s", error)
             else:
                 self._root.after(0, self._update_buttons_done)
+                self._notify_transcription_done()
+                if self._config.auto_open_folder:
+                    self._root.after(0, self._on_open_folder)
 
         self._transcriber = TranscriptionRunner(
             config=tcfg,
@@ -562,6 +566,13 @@ class RecorderApp:
     def _on_open_folder(self) -> None:
         if self._output_dir and self._output_dir.exists():
             subprocess.run(["xdg-open", str(self._output_dir)], check=False)
+
+    def _notify_transcription_done(self) -> None:
+        if shutil.which("notify-send"):
+            subprocess.run(
+                ["notify-send", "Whisper Recorder", "Transcription finished"],
+                check=False,
+            )
 
     # ------------------------------------------------------------------
     # Timer

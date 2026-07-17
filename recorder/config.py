@@ -30,6 +30,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "max_speakers": None,
     "num_speakers": None,
     "diarize": True,
+    "auto_open_folder": True,
 }
 
 
@@ -51,6 +52,7 @@ class AppConfig:
     max_speakers: int | None = None
     num_speakers: int | None = None
     diarize: bool = True
+    auto_open_folder: bool = True
 
     @property
     def hf_token(self) -> str | None:

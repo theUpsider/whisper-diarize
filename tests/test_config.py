@@ -32,6 +32,7 @@ class TestAppConfig:
         assert cfg.max_speakers is None
         assert cfg.num_speakers is None
         assert cfg.diarize is True
+        assert cfg.auto_open_folder is True
 
     def test_hf_token_reads_env(self, monkeypatch) -> None:
         monkeypatch.setenv("HUGGINGFACE_TOKEN", "hf_abc123")

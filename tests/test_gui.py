@@ -275,6 +275,67 @@ class TestActions:
 # ---------------------------------------------------------------------------
 
 
+class TestNotifyAndAutoOpen:
+    """Test desktop notification + auto-open-folder on transcription finish."""
+
+    def test_notify_sends_when_available(self, app: RecorderApp) -> None:
+        app._build_modal()
+        with mock.patch("recorder.gui.shutil.which", return_value="/usr/bin/notify-send"), \
+                mock.patch("recorder.gui.subprocess.run") as run:
+            app._notify_transcription_done()
+            run.assert_called_once_with(
+                ["notify-send", "Whisper Recorder", "Transcription finished"],
+                check=False,
+            )
+
+    def test_notify_noop_when_unavailable(self, app: RecorderApp) -> None:
+        app._build_modal()
+        with mock.patch("recorder.gui.shutil.which", return_value=None), \
+                mock.patch("recorder.gui.subprocess.run") as run:
+            app._notify_transcription_done()
+            run.assert_not_called()
+
+    def test_done_callback_auto_opens_folder_when_enabled(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        app._config.auto_open_folder = True
+        app._mixed_path = tmp_path / "rec.wav"
+        app._mixed_path.touch()
+
+        fake_runner = mock.MagicMock()
+        with mock.patch("recorder.gui.TranscriptionRunner", return_value=fake_runner) as runner_cls, \
+                mock.patch.object(app, "_notify_transcription_done") as notify, \
+                mock.patch.object(app, "_on_open_folder") as open_folder:
+            app._on_transcribe()
+            done_callback = runner_cls.call_args.kwargs["done_callback"]
+            done_callback({"segments": []}, None)
+            app._root.update()  # process the after(0, ...) call scheduling _on_open_folder
+
+        notify.assert_called_once()
+        open_folder.assert_called_once()
+
+    def test_done_callback_skips_auto_open_when_disabled(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        app._config.auto_open_folder = False
+        app._mixed_path = tmp_path / "rec.wav"
+        app._mixed_path.touch()
+
+        fake_runner = mock.MagicMock()
+        with mock.patch("recorder.gui.TranscriptionRunner", return_value=fake_runner) as runner_cls, \
+                mock.patch.object(app, "_notify_transcription_done") as notify, \
+                mock.patch.object(app, "_on_open_folder") as open_folder:
+            app._on_transcribe()
+            done_callback = runner_cls.call_args.kwargs["done_callback"]
+            done_callback({"segments": []}, None)
+            app._root.update()
+
+        notify.assert_called_once()
+        open_folder.assert_not_called()
+
+
 class TestTimer:
     """Test timer start/stop/tick."""
 
