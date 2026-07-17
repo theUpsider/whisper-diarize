@@ -1,10 +1,15 @@
 [project]
 name = "whisper-transcriber"
-version = "0.1.0"
-description = "Transcribe and diarize video/audio files with WhisperX"
+version = "0.2.0"
+description = "Transcribe and diarize video/audio files with WhisperX, plus live recording GUI"
 requires-python = ">=3.10"
 dependencies = [
     "python-dotenv",
+    "pynput>=1.7",
     "torch",
     "whisperx",
 ]
+
+[project.scripts]
+whisper-recorder = "recorder.main:main"
+whisper-transcribe = "main:main"

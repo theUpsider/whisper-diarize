@@ -9,7 +9,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -32,6 +32,21 @@ class OrderedVideo:
     path: Path
     order_time: datetime
     order_source: str
+
+
+@dataclass
+class TranscriptionConfig:
+    """Parameters for transcribe_and_diarize — usable without argparse."""
+
+    hf_token: str | None = None
+    model: str = "large-v3"
+    device: str | None = None
+    compute_type: str = "float16"
+    language: str = "de"
+    batch_size: int = 8
+    min_speakers: int | None = None
+    max_speakers: int | None = None
+    num_speakers: int | None = None
 
 
 def parse_args() -> argparse.Namespace:
@@ -214,22 +229,46 @@ def choose_device(explicit: str | None) -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def transcribe_and_diarize(audio_path: Path, args: argparse.Namespace) -> dict[str, Any]:
-    if not args.hf_token:
+def transcribe_and_diarize(
+    audio_path: Path,
+    config: TranscriptionConfig | None = None,
+    args: argparse.Namespace | None = None,
+) -> dict[str, Any]:
+    """Transcribe and diarize audio.
+
+    Prefer passing ``config`` (TranscriptionConfig).  The ``args`` parameter
+    is kept for backward compatibility with the CLI entry point.
+    """
+    if config is None and args is not None:
+        config = TranscriptionConfig(
+            hf_token=args.hf_token,
+            model=args.model,
+            device=args.device,
+            compute_type=args.compute_type,
+            language=args.language,
+            batch_size=args.batch_size,
+            min_speakers=args.min_speakers,
+            max_speakers=args.max_speakers,
+            num_speakers=args.num_speakers,
+        )
+    if config is None:
+        raise ValueError("Either config or args must be provided")
+
+    if not config.hf_token:
         raise SystemExit(
             "Missing Hugging Face token. Set HUGGINGFACE_TOKEN or pass --hf-token."
         )
 
-    device = choose_device(args.device)
+    device = choose_device(config.device)
     model = whisperx.load_model(
-        args.model,
+        config.model,
         device,
-        compute_type=args.compute_type,
-        language=args.language,
+        compute_type=config.compute_type,
+        language=config.language,
     )
     audio = whisperx.load_audio(str(audio_path))
     result = model.transcribe(
-        audio, batch_size=args.batch_size, language=args.language)
+        audio, batch_size=config.batch_size, language=config.language)
 
     model_a, metadata = whisperx.load_align_model(
         language_code=result["language"],
@@ -245,16 +284,19 @@ def transcribe_and_diarize(audio_path: Path, args: argparse.Namespace) -> dict[s
     )
 
     diarize_model = DiarizationPipeline(
-        token=args.hf_token,
+        token=config.hf_token,
         device=device,
     )
     diarize_segments = diarize_model(
         str(audio_path),
-        min_speakers=args.min_speakers,
-        max_speakers=args.max_speakers,
-        num_speakers=args.num_speakers,
+        min_speakers=config.min_speakers,
+        max_speakers=config.max_speakers,
+        num_speakers=config.num_speakers,
     )
-    return assign_word_speakers(diarize_segments, aligned)
+    # Unpack tuple if diarize_model returns (DataFrame, dict) in newer WhisperX
+    if isinstance(diarize_segments, tuple):
+        diarize_segments = diarize_segments[0]
+    return cast("dict[str, Any]", assign_word_speakers(diarize_segments, aligned))
 
 
 def format_timestamp(seconds: float | None) -> str:
@@ -320,6 +362,7 @@ def main() -> int:
     args.input_dir.mkdir(parents=True, exist_ok=True)
 
     ordered_videos = discover_videos(args.input_dir)
+    merged_video: Path | None = None
     if args.skip_concat:
         audio_path = run_work_dir / "merged.wav"
         if not audio_path.exists():
@@ -327,7 +370,7 @@ def main() -> int:
     else:
         merged_video = concat_videos(ordered_videos, run_work_dir)
         audio_path = extract_audio(merged_video, run_work_dir)
-    result = transcribe_and_diarize(audio_path, args)
+    result = transcribe_and_diarize(audio_path, args=args)
     transcript_text = render_transcript(result, ordered_videos)
     transcript_path, json_path = write_outputs(
         result, transcript_text, run_output_dir)
@@ -340,7 +383,7 @@ def main() -> int:
         video.path.rename(dest)
         print(f"Moved: {video.path.name} -> {processed_dir.name}/")
 
-    if not args.skip_concat:
+    if not args.skip_concat and merged_video is not None:
         print(f"Merged video: {merged_video}")
     print(f"Extracted audio: {audio_path}")
     print(f"Transcript text: {transcript_path}")
