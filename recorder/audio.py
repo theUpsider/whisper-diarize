@@ -213,10 +213,15 @@ class AudioRecorder:
         self, source: str, output: Path, with_level_meter: bool = False
     ) -> subprocess.Popen[str]:
         """Start ffmpeg recording a single PulseAudio source."""
+        # "file=pipe\\:2" on the ametadata filter fails to initialize the
+        # filter graph on some ffmpeg builds (silently crashes the process,
+        # producing no output at all) — instead let ametadata print to its
+        # normal av_log stream, which requires -loglevel info to be visible.
+        loglevel = "info" if with_level_meter else "error"
         args = [
             "ffmpeg",
             "-y",
-            "-loglevel", "error",
+            "-loglevel", loglevel,
             "-f", "pulse",
             "-i", source if source != "default" else "default",
             "-ar", "16000",
@@ -226,7 +231,7 @@ class AudioRecorder:
             args += [
                 "-af",
                 "asetnsamples=n=1600:p=0,astats=metadata=1:reset=1,"
-                "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=pipe\\:2",
+                "ametadata=print:key=lavfi.astats.Overall.RMS_level",
             ]
         args += ["-f", "wav", str(output)]
         return subprocess.Popen(

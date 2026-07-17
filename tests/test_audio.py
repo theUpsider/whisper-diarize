@@ -51,6 +51,41 @@ class TestRmsDbToLevel:
         assert _rms_db_to_level("-30") == pytest.approx(50.0)
 
 
+class TestLaunchFfmpegArgs:
+    """Regression coverage for the level-meter ffmpeg filter arguments.
+
+    ``file=pipe\\:2`` on the ametadata filter fails to initialize the
+    filter graph on some ffmpeg builds, silently crashing the mic
+    recording process. Metadata must instead go through the normal
+    av_log stream, which requires -loglevel info.
+    """
+
+    @mock.patch("subprocess.Popen")
+    def test_level_meter_uses_info_loglevel_and_no_pipe_file(
+        self, mock_popen, recorder: AudioRecorder
+    ) -> None:
+        mock_popen.return_value = mock.MagicMock(stderr=iter([]))
+        recorder._launch_ffmpeg("mic", Path("/tmp/out.wav"), with_level_meter=True)
+
+        args = mock_popen.call_args[0][0]
+        assert "-loglevel" in args
+        assert args[args.index("-loglevel") + 1] == "info"
+        af_value = args[args.index("-af") + 1]
+        assert "pipe" not in af_value
+        assert "ametadata=print:key=lavfi.astats.Overall.RMS_level" in af_value
+
+    @mock.patch("subprocess.Popen")
+    def test_no_level_meter_uses_error_loglevel(
+        self, mock_popen, recorder: AudioRecorder
+    ) -> None:
+        mock_popen.return_value = mock.MagicMock(stderr=iter([]))
+        recorder._launch_ffmpeg("mic", Path("/tmp/out.wav"), with_level_meter=False)
+
+        args = mock_popen.call_args[0][0]
+        assert args[args.index("-loglevel") + 1] == "error"
+        assert "-af" not in args
+
+
 class TestStateMachine:
     """Test the RecorderState transitions."""
 
