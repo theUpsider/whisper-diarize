@@ -22,6 +22,7 @@ load_dotenv()
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 INPUT_DIR = SCRIPT_DIR / "input"
+INPUT_PROCESSED_DIR = SCRIPT_DIR / "input_processed"
 WORK_DIR = SCRIPT_DIR / "work"
 OUTPUT_DIR = SCRIPT_DIR / "output"
 
@@ -310,22 +311,34 @@ def main() -> int:
     ensure_binary("ffmpeg")
     ensure_binary("ffprobe")
 
-    args.work_dir.mkdir(parents=True, exist_ok=True)
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    run_ts = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+    run_work_dir = args.work_dir / run_ts
+    run_output_dir = args.output_dir / run_ts
+
+    run_work_dir.mkdir(parents=True, exist_ok=True)
+    run_output_dir.mkdir(parents=True, exist_ok=True)
     args.input_dir.mkdir(parents=True, exist_ok=True)
 
     ordered_videos = discover_videos(args.input_dir)
     if args.skip_concat:
-        audio_path = args.work_dir / "merged.wav"
+        audio_path = run_work_dir / "merged.wav"
         if not audio_path.exists():
             raise SystemExit(f"Audio file not found: {audio_path}")
     else:
-        merged_video = concat_videos(ordered_videos, args.work_dir)
-        audio_path = extract_audio(merged_video, args.work_dir)
+        merged_video = concat_videos(ordered_videos, run_work_dir)
+        audio_path = extract_audio(merged_video, run_work_dir)
     result = transcribe_and_diarize(audio_path, args)
     transcript_text = render_transcript(result, ordered_videos)
     transcript_path, json_path = write_outputs(
-        result, transcript_text, args.output_dir)
+        result, transcript_text, run_output_dir)
+
+    # Move processed input files to input_processed/
+    processed_dir = INPUT_PROCESSED_DIR
+    processed_dir.mkdir(parents=True, exist_ok=True)
+    for video in ordered_videos:
+        dest = processed_dir / video.path.name
+        video.path.rename(dest)
+        print(f"Moved: {video.path.name} -> {processed_dir.name}/")
 
     if not args.skip_concat:
         print(f"Merged video: {merged_video}")
