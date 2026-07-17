@@ -13,10 +13,6 @@ from typing import Any, cast
 
 from dotenv import load_dotenv
 
-import torch
-import whisperx
-from whisperx.diarize import DiarizationPipeline, assign_word_speakers
-
 load_dotenv()
 
 
@@ -226,6 +222,7 @@ def extract_audio(video_path: Path, work_dir: Path) -> Path:
 def choose_device(explicit: str | None) -> str:
     if explicit:
         return explicit
+    import torch  # lazy — avoid loading CUDA at import time
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -258,6 +255,9 @@ def transcribe_and_diarize(
         raise SystemExit(
             "Missing Hugging Face token. Set HUGGINGFACE_TOKEN or pass --hf-token."
         )
+
+    import whisperx  # lazy — avoid loading ML stack at import time
+    from whisperx.diarize import DiarizationPipeline, assign_word_speakers
 
     device = choose_device(config.device)
     model = whisperx.load_model(

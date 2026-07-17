@@ -57,30 +57,15 @@ def _parse_args() -> argparse.Namespace:
 # Desktop file
 # ---------------------------------------------------------------------------
 
-def _venv_python() -> str:
-    """Return the path to the Python interpreter inside the active venv, or sys.executable."""
-    return os.environ.get("VIRTUAL_ENV") and os.path.join(
-        os.environ["VIRTUAL_ENV"], "bin", "python"
-    ) or sys.executable
-
-
 def install_desktop() -> None:
-    """Create or overwrite the .desktop file in ~/.local/share/applications/."""
+    """Install the .desktop file from the template to ~/.local/share/applications/."""
     DESKTOP_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 
-    python_bin = _venv_python()
-    entrypoint = str(PROJECT_ROOT / "recorder" / "main.py")
+    if not DESKTOP_TEMPLATE.exists():
+        logger.error("Desktop template not found: %s", DESKTOP_TEMPLATE)
+        return
 
-    content = f"""[Desktop Entry]
-Name=Whisper Recorder
-Comment=Record microphone + system audio, then transcribe with WhisperX
-Exec={python_bin} {entrypoint}
-Icon=audio-input-microphone
-Terminal=false
-Type=Application
-Categories=AudioVideo;Audio;Recorder;
-StartupWMClass=Whisper Recorder
-"""
+    content = DESKTOP_TEMPLATE.read_text(encoding="utf-8")
 
     dest = DESKTOP_INSTALL_DIR / "whisper-recorder.desktop"
     dest.write_text(content, encoding="utf-8")
