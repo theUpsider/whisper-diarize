@@ -111,6 +111,9 @@ class RecorderApp:
         self._meter_job: str | None = None
         self._button_frame: ttk.Frame | None = None
         self._wayland_label: ttk.Label | None = None
+        self._recent_var: tk.StringVar | None = None
+        self._recent_combo: ttk.Combobox | None = None
+        self._recent_paths: list[Path] = []
 
         # Mic source stored for resume
         self._current_mic_source: str = self._config.mic_device
@@ -332,6 +335,19 @@ class RecorderApp:
         self._button_frame = ttk.Frame(main)
         self._button_frame.pack(fill="x", pady=(PAD_Y, 0))
 
+        # ---- Recent recordings ----
+        recent_frame = ttk.Frame(main)
+        recent_frame.pack(fill="x", pady=(PAD_Y, 0))
+        ttk.Label(recent_frame, text="Recent:").pack(side="left")
+        self._recent_var = tk.StringVar(value="")
+        self._recent_combo = ttk.Combobox(
+            recent_frame, textvariable=self._recent_var, state="readonly", width=35,
+        )
+        self._recent_combo.pack(side="left", padx=(4, 0), fill="x", expand=True)
+        self._recent_combo.bind(
+            "<<ComboboxSelected>>", self._on_recent_selected)
+        self._refresh_recent_recordings()
+
         self._update_buttons_idle()
 
         # Force geometry negotiation before locking size/centering — without
@@ -441,6 +457,7 @@ class RecorderApp:
         ttk.Button(
             self._button_frame, text="New Recording", command=self._update_buttons_idle,
         ).pack(side="left")
+        self._refresh_recent_recordings()
 
     def _update_buttons_error(self, msg: str) -> None:
         self._clear_buttons()
@@ -566,6 +583,27 @@ class RecorderApp:
     def _on_open_folder(self) -> None:
         if self._output_dir and self._output_dir.exists():
             subprocess.run(["xdg-open", str(self._output_dir)], check=False)
+
+    def _refresh_recent_recordings(self) -> None:
+        if self._recent_combo is None or self._recent_var is None:
+            return
+        output_dir = Path(self._config.output_dir)
+        subdirs: list[Path] = []
+        if output_dir.exists():
+            subdirs = [p for p in output_dir.iterdir() if p.is_dir()]
+            subdirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        self._recent_paths = subdirs[:10]
+        self._recent_combo["values"] = [p.name for p in self._recent_paths]
+        self._recent_var.set("")
+
+    def _on_recent_selected(self, _event: object = None) -> None:
+        if self._recent_combo is None:
+            return
+        index = self._recent_combo.current()
+        if index < 0 or index >= len(self._recent_paths):
+            return
+        subprocess.run(
+            ["xdg-open", str(self._recent_paths[index])], check=False)
 
     def _notify_transcription_done(self) -> None:
         if shutil.which("notify-send"):

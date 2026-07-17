@@ -336,6 +336,82 @@ class TestNotifyAndAutoOpen:
         open_folder.assert_not_called()
 
 
+class TestRecentRecordings:
+    """Test the recent-recordings dropdown."""
+
+    def test_build_modal_sets_recent_widgets(self, app: RecorderApp) -> None:
+        app._build_modal()
+        assert app._recent_var is not None
+        assert app._recent_combo is not None
+
+    def test_refresh_lists_subdirs_newest_first(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+
+        older = tmp_path / "2024-01-01_000000"
+        newer = tmp_path / "2024-01-02_000000"
+        older.mkdir()
+        newer.mkdir()
+        os.utime(older, (1, 1))
+        os.utime(newer, (2, 2))
+
+        app._refresh_recent_recordings()
+
+        assert list(app._recent_combo["values"]) == [newer.name, older.name]
+        assert app._recent_paths == [newer, older]
+
+    def test_refresh_caps_at_ten_entries(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+        for i in range(15):
+            (tmp_path / f"run_{i:02d}").mkdir()
+
+        app._refresh_recent_recordings()
+
+        assert len(app._recent_paths) == 10
+
+    def test_refresh_handles_missing_output_dir(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path / "does_not_exist")
+        app._build_modal()
+
+        app._refresh_recent_recordings()
+
+        assert app._recent_paths == []
+        assert list(app._recent_combo["values"]) == []
+
+    def test_selecting_entry_opens_folder(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+        target = tmp_path / "2024-01-01_000000"
+        target.mkdir()
+        app._refresh_recent_recordings()
+
+        app._recent_combo.current(0)
+        with mock.patch("recorder.gui.subprocess.run") as run:
+            app._on_recent_selected()
+            run.assert_called_once_with(
+                ["xdg-open", str(target)], check=False)
+
+    def test_update_buttons_done_refreshes_recent(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+        (tmp_path / "2024-01-01_000000").mkdir()
+
+        app._update_buttons_done()
+
+        assert len(app._recent_paths) == 1
+
+
 class TestTimer:
     """Test timer start/stop/tick."""
 
