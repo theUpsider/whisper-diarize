@@ -343,6 +343,59 @@ def render_transcript(result: dict[str, Any], ordered_videos: list[OrderedVideo]
     return "\n".join(header_lines + body_lines) + "\n"
 
 
+def _format_srt_timestamp(seconds: float) -> str:
+    total_ms = int(round(seconds * 1000))
+    hours, remainder = divmod(total_ms, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    secs, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
+def _format_vtt_timestamp(seconds: float) -> str:
+    total_ms = int(round(seconds * 1000))
+    hours, remainder = divmod(total_ms, 3_600_000)
+    minutes, remainder = divmod(remainder, 60_000)
+    secs, millis = divmod(remainder, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d}.{millis:03d}"
+
+
+def render_srt(result: dict[str, Any]) -> str:
+    blocks: list[str] = []
+    index = 1
+    for segment in result.get("segments", []):
+        text = (segment.get("text") or "").strip()
+        if not text:
+            continue
+        start = segment.get("start") or 0.0
+        end = segment.get("end") or 0.0
+        speaker = segment.get("speaker")
+        prefix = f"[{speaker}]: " if speaker else ""
+        blocks.append(
+            f"{index}\n"
+            f"{_format_srt_timestamp(start)} --> {_format_srt_timestamp(end)}\n"
+            f"{prefix}{text}\n"
+        )
+        index += 1
+    return "\n".join(blocks) + ("\n" if blocks else "")
+
+
+def render_vtt(result: dict[str, Any]) -> str:
+    blocks: list[str] = ["WEBVTT\n"]
+    for segment in result.get("segments", []):
+        text = (segment.get("text") or "").strip()
+        if not text:
+            continue
+        start = segment.get("start") or 0.0
+        end = segment.get("end") or 0.0
+        speaker = segment.get("speaker")
+        prefix = f"[{speaker}]: " if speaker else ""
+        blocks.append(
+            f"{_format_vtt_timestamp(start)} --> {_format_vtt_timestamp(end)}\n"
+            f"{prefix}{text}\n"
+        )
+    return "\n".join(blocks) + "\n"
+
+
 def write_outputs(
     result: dict[str, Any],
     transcript_text: str,
@@ -351,9 +404,13 @@ def write_outputs(
     output_dir.mkdir(parents=True, exist_ok=True)
     transcript_path = output_dir / "final_transcript.txt"
     json_path = output_dir / "final_transcript.json"
+    srt_path = output_dir / "final_transcript.srt"
+    vtt_path = output_dir / "final_transcript.vtt"
     transcript_path.write_text(transcript_text, encoding="utf-8")
     json_path.write_text(json.dumps(
         result, ensure_ascii=False, indent=2), encoding="utf-8")
+    srt_path.write_text(render_srt(result), encoding="utf-8")
+    vtt_path.write_text(render_vtt(result), encoding="utf-8")
     return transcript_path, json_path
 
 

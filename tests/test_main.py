@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import types
 from pathlib import Path
@@ -9,7 +10,13 @@ from unittest import mock
 
 import pytest
 
-from main import TranscriptionConfig, transcribe_and_diarize
+from main import (
+    TranscriptionConfig,
+    render_srt,
+    render_vtt,
+    transcribe_and_diarize,
+    write_outputs,
+)
 
 
 def _make_fake_whisperx(monkeypatch: pytest.MonkeyPatch) -> mock.MagicMock:
@@ -72,3 +79,74 @@ class TestDiarizeToggle:
 
         diarize_cls.assert_called_once_with(token="hf_test", device="cpu")
         assert result == {"segments": [], "speakers": True}
+
+
+_SAMPLE_RESULT = {
+    "segments": [
+        {"start": 0.0, "end": 1.5, "text": " Hello there. ", "speaker": "SPEAKER_00"},
+        {"start": 1.5, "end": 3.25, "text": "General Kenobi.", "speaker": "SPEAKER_01"},
+        {"start": 5.0, "end": 5.0, "text": "   ", "speaker": "SPEAKER_00"},
+        {"start": 6.0, "end": 7.0, "text": "No speaker key."},
+    ]
+}
+
+
+class TestRenderSrt:
+    """render_srt should produce valid SRT blocks."""
+
+    def test_formats_timestamps_and_index(self) -> None:
+        srt = render_srt(_SAMPLE_RESULT)
+        assert "1\n00:00:00,000 --> 00:00:01,500\n[SPEAKER_00]: Hello there.\n" in srt
+        assert "2\n00:00:01,500 --> 00:00:03,250\n[SPEAKER_01]: General Kenobi.\n" in srt
+
+    def test_skips_blank_text(self) -> None:
+        srt = render_srt(_SAMPLE_RESULT)
+        # 4 segments, 1 blank -> 3 blocks -> index goes 1, 2, 3 (no gap for the blank one)
+        assert "3\n00:00:06,000 --> 00:00:07,000\nNo speaker key.\n" in srt
+        assert "5.0" not in srt
+
+    def test_omits_speaker_prefix_when_missing(self) -> None:
+        srt = render_srt(_SAMPLE_RESULT)
+        assert "00:00:06,000 --> 00:00:07,000\nNo speaker key.\n" in srt
+
+    def test_empty_segments(self) -> None:
+        assert render_srt({"segments": []}) == ""
+
+
+class TestRenderVtt:
+    """render_vtt should produce a valid WEBVTT document."""
+
+    def test_starts_with_webvtt_header(self) -> None:
+        vtt = render_vtt(_SAMPLE_RESULT)
+        assert vtt.startswith("WEBVTT\n")
+
+    def test_formats_timestamps_with_dot(self) -> None:
+        vtt = render_vtt(_SAMPLE_RESULT)
+        assert "00:00:00.000 --> 00:00:01.500\n[SPEAKER_00]: Hello there.\n" in vtt
+
+    def test_skips_blank_text(self) -> None:
+        vtt = render_vtt(_SAMPLE_RESULT)
+        assert "     " not in vtt
+
+    def test_empty_segments(self) -> None:
+        assert render_vtt({"segments": []}) == "WEBVTT\n\n"
+
+
+class TestWriteOutputs:
+    """write_outputs should also emit .srt and .vtt files."""
+
+    def test_writes_all_four_files(self, temp_dir: Path) -> None:
+        transcript_path, json_path = write_outputs(
+            _SAMPLE_RESULT, "sample transcript\n", temp_dir)
+
+        srt_path = temp_dir / "final_transcript.srt"
+        vtt_path = temp_dir / "final_transcript.vtt"
+
+        assert transcript_path.exists()
+        assert json_path.exists()
+        assert srt_path.exists()
+        assert vtt_path.exists()
+
+        assert json.loads(json_path.read_text(encoding="utf-8")) == _SAMPLE_RESULT
+        assert srt_path.read_text(encoding="utf-8").startswith("1\n")
+        assert vtt_path.read_text(encoding="utf-8").startswith("WEBVTT\n")
