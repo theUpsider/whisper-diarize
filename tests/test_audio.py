@@ -12,7 +12,7 @@ from unittest import mock
 
 import pytest
 
-from recorder.audio import AudioRecorder, RecorderState, RecorderStatus
+from recorder.audio import AudioRecorder, RecorderState, RecorderStatus, _rms_db_to_level
 
 
 # ---------------------------------------------------------------------------
@@ -29,6 +29,26 @@ def recorder(temp_work_dir: Path) -> AudioRecorder:
 # ---------------------------------------------------------------------------
 # State machine
 # ---------------------------------------------------------------------------
+
+
+class TestRmsDbToLevel:
+    """Test the dBFS -> 0-100 meter level mapping."""
+
+    def test_silence_is_zero(self) -> None:
+        assert _rms_db_to_level("-inf") == 0.0
+
+    def test_full_scale_is_hundred(self) -> None:
+        assert _rms_db_to_level("0") == 100.0
+
+    def test_clamps_below_range(self) -> None:
+        assert _rms_db_to_level("-60") == 0.0
+        assert _rms_db_to_level("-120") == 0.0
+
+    def test_clamps_above_range(self) -> None:
+        assert _rms_db_to_level("10") == 100.0
+
+    def test_mid_range_value(self) -> None:
+        assert _rms_db_to_level("-30") == pytest.approx(50.0)
 
 
 class TestStateMachine:

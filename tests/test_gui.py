@@ -58,6 +58,7 @@ def app(cfg: AppConfig) -> RecorderApp:
         pytest.skip("No display available for tkinter tests")
 
     app = RecorderApp(cfg)
+    return app
 
 
 # ---------------------------------------------------------------------------

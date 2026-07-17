@@ -104,6 +104,9 @@ class RecorderApp:
         self._timer_var: tk.StringVar | None = None
         self._status_var: tk.StringVar | None = None
         self._progress: ttk.Progressbar | None = None
+        self._meter_var: tk.DoubleVar | None = None
+        self._meter_bar: ttk.Progressbar | None = None
+        self._meter_job: str | None = None
         self._button_frame: ttk.Frame | None = None
         self._wayland_label: ttk.Label | None = None
 
@@ -184,6 +187,7 @@ class RecorderApp:
         self._modal = tk.Toplevel(self._root)
         self._modal.title("Whisper Recorder")
         self._modal.transient(self._root)
+        self._modal_visible = True
 
         # Make truly modal (Windows only; no-op on X11/Wayland)
         try:
@@ -300,6 +304,16 @@ class RecorderApp:
         status_label = ttk.Label(
             timer_frame, textvariable=self._status_var, foreground="gray")
         status_label.pack(side="left", padx=(16, 0))
+
+        # ---- Level meter ----
+        meter_frame = ttk.Frame(main)
+        meter_frame.pack(fill="x", pady=(0, PAD_Y))
+        ttk.Label(meter_frame, text="Level:").pack(side="left")
+        self._meter_var = tk.DoubleVar(value=0.0)
+        self._meter_bar = ttk.Progressbar(
+            meter_frame, mode="determinate", maximum=100,
+            variable=self._meter_var, length=200)
+        self._meter_bar.pack(side="left", padx=(8, 0), fill="x", expand=True)
 
         # ---- Progress bar ----
         self._progress = ttk.Progressbar(
@@ -453,20 +467,24 @@ class RecorderApp:
 
         self._update_buttons_recording()
         self._start_timer()
+        self._start_meter()
 
     def _on_pause(self) -> None:
         self._recorder.pause()
         self._update_buttons_paused()
         self._stop_timer()
+        self._stop_meter()
 
     def _on_resume(self) -> None:
         # Pass the current mic source so AudioRecorder knows which device
         self._recorder.resume_with_source(self._current_mic_source)
         self._update_buttons_recording()
         self._start_timer()
+        self._start_meter()
 
     def _on_stop(self) -> None:
         self._stop_timer()
+        self._stop_meter()
         try:
             self._mixed_path = self._recorder.stop()
         except Exception as exc:
@@ -555,6 +573,26 @@ class RecorderApp:
         mins, secs = divmod(rem, 60)
         self._timer_var.set(f"{hours:02d}:{mins:02d}:{secs:02d}")
         self._timer_job = self._root.after(250, self._tick_timer)
+
+    # ------------------------------------------------------------------
+    # Level meter
+    # ------------------------------------------------------------------
+
+    def _start_meter(self) -> None:
+        self._stop_meter()
+        self._tick_meter()
+
+    def _stop_meter(self) -> None:
+        if self._meter_job is not None:
+            self._root.after_cancel(self._meter_job)
+            self._meter_job = None
+        if self._meter_var is not None:
+            self._meter_var.set(0.0)
+
+    def _tick_meter(self) -> None:
+        assert self._meter_var is not None
+        self._meter_var.set(self._recorder.mic_level)
+        self._meter_job = self._root.after(100, self._tick_meter)
 
     # ------------------------------------------------------------------
     # Recorder status callback (for external state changes)

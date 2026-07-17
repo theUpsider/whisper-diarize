@@ -7,6 +7,7 @@ On stop, both streams are terminated and mixed into a single 16 kHz mono WAV.
 
 from __future__ import annotations
 
+import re
 import signal
 import subprocess
 import threading
@@ -15,6 +16,16 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 from typing import Callable
+
+_RMS_RE = re.compile(r"RMS_level=(-?[\d.]+|-inf)")
+
+
+def _rms_db_to_level(db_text: str) -> float:
+    """Map an RMS dBFS reading to a 0-100 meter level, clamped."""
+    if db_text == "-inf":
+        return 0.0
+    db = float(db_text)
+    return max(0.0, min(100.0, (db + 60.0) / 60.0 * 100.0))
 
 
 class RecorderState(Enum):
@@ -50,6 +61,7 @@ class AudioRecorder:
 
         self._mic_proc: subprocess.Popen[str] | None = None
         self._sys_proc: subprocess.Popen[str] | None = None
+        self._mic_level: float = 0.0
         self._state = RecorderState.IDLE
         self._start_time: float = 0.0  # monotonic timestamp of last start/resume
         self._accumulated: float = 0.0  # total active recording time before last pause
@@ -72,6 +84,12 @@ class AudioRecorder:
     def state(self) -> RecorderState:
         with self._lock:
             return self._state
+
+    @property
+    def mic_level(self) -> float:
+        """Current mic input level, 0-100 (RMS-based)."""
+        with self._lock:
+            return self._mic_level
 
     @property
     def elapsed(self) -> float:
@@ -111,7 +129,9 @@ class AudioRecorder:
         try:
             self._sys_proc = self._launch_ffmpeg(
                 monitor_source, self._sys_path)
-            self._mic_proc = self._launch_ffmpeg(mic_source, self._mic_path)
+            self._mic_proc = self._launch_ffmpeg(
+                mic_source, self._mic_path, with_level_meter=True)
+            self._start_level_reader(self._mic_proc)
         except Exception:
             self._cleanup_processes()
             with self._lock:
@@ -132,6 +152,8 @@ class AudioRecorder:
 
         self._stop_process(self._mic_proc)
         self._mic_proc = None
+        with self._lock:
+            self._mic_level = 0.0
         self._notify()
 
     def stop(self) -> Path | None:
@@ -148,6 +170,8 @@ class AudioRecorder:
         self._mic_proc = None
         self._stop_process(self._sys_proc)
         self._sys_proc = None
+        with self._lock:
+            self._mic_level = 0.0
 
         # If mic file exists, add current segment
         if self._mic_path.exists():
@@ -177,6 +201,7 @@ class AudioRecorder:
             self._start_time = 0.0
             self._accumulated = 0.0
             self._mic_segments = []
+            self._mic_level = 0.0
 
         self._notify()
 
@@ -184,25 +209,46 @@ class AudioRecorder:
     # Internal
     # ------------------------------------------------------------------
 
-    def _launch_ffmpeg(self, source: str, output: Path) -> subprocess.Popen[str]:
+    def _launch_ffmpeg(
+        self, source: str, output: Path, with_level_meter: bool = False
+    ) -> subprocess.Popen[str]:
         """Start ffmpeg recording a single PulseAudio source."""
+        args = [
+            "ffmpeg",
+            "-y",
+            "-loglevel", "error",
+            "-f", "pulse",
+            "-i", source if source != "default" else "default",
+            "-ar", "16000",
+            "-ac", "1",
+        ]
+        if with_level_meter:
+            args += [
+                "-af",
+                "asetnsamples=n=1600:p=0,astats=metadata=1:reset=1,"
+                "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=pipe\\:2",
+            ]
+        args += ["-f", "wav", str(output)]
         return subprocess.Popen(
-            [
-                "ffmpeg",
-                "-y",
-                "-loglevel", "error",
-                "-f", "pulse",
-                "-i", source if source != "default" else "default",
-                "-ar", "16000",
-                "-ac", "1",
-                "-f", "wav",
-                str(output),
-            ],
+            args,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
             text=True,
         )
+
+    def _start_level_reader(self, proc: subprocess.Popen[str]) -> None:
+        """Read ffmpeg's stderr in a daemon thread, updating ``_mic_level``."""
+        def _reader() -> None:
+            assert proc.stderr is not None
+            for line in proc.stderr:
+                match = _RMS_RE.search(line)
+                if match is None:
+                    continue
+                with self._lock:
+                    self._mic_level = _rms_db_to_level(match.group(1))
+
+        threading.Thread(target=_reader, daemon=True).start()
 
     @staticmethod
     def _stop_process(proc: subprocess.Popen[str] | None) -> None:
@@ -237,7 +283,9 @@ class AudioRecorder:
         if self._mic_path.exists():
             self._mic_path.rename(segment_path)
 
-        self._mic_proc = self._launch_ffmpeg(mic_source, self._mic_path)
+        self._mic_proc = self._launch_ffmpeg(
+            mic_source, self._mic_path, with_level_meter=True)
+        self._start_level_reader(self._mic_proc)
         self._notify()
 
     def _mix_segments(self) -> Path | None:
