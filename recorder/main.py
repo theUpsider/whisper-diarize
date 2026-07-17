@@ -11,13 +11,14 @@ Configuration lives at ``~/.config/whisper-recorder/config.json``.
 from __future__ import annotations
 
 import argparse
+import fcntl
 import logging
 import os
 import shutil
 import sys
 from pathlib import Path
 
-from recorder.config import load_config
+from recorder.config import CONFIG_DIR, load_config
 from recorder.gui import RecorderApp
 
 logging.basicConfig(
@@ -30,6 +31,29 @@ logger = logging.getLogger("recorder.main")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DESKTOP_TEMPLATE = PROJECT_ROOT / "assets" / "whisper-recorder.desktop"
 DESKTOP_INSTALL_DIR = Path.home() / ".local" / "share" / "applications"
+LOCK_PATH = CONFIG_DIR / "recorder.lock"
+
+# Kept open for the process lifetime; the OS releases the flock
+# automatically on exit (even a crash), so no stale-lock cleanup needed.
+_lock_file = None
+
+
+def _acquire_singleton_lock() -> bool:
+    """Return True if this is the only running instance.
+
+    Prevents the hotkey/desktop shortcut from spawning duplicate GUI
+    processes (which otherwise pile up as stale background windows).
+    """
+    global _lock_file
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    _lock_file = open(LOCK_PATH, "w")
+    try:
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        _lock_file.close()
+        _lock_file = None
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +178,17 @@ def main() -> int:
         from recorder.config import CONFIG_PATH
         print(str(CONFIG_PATH))
         return 0
+
+    if not _acquire_singleton_lock():
+        logger.warning("Whisper Recorder is already running — refusing to start a second instance")
+        if shutil.which("notify-send"):
+            import subprocess
+            subprocess.run(
+                ["notify-send", "Whisper Recorder",
+                 "Already running — check your taskbar."],
+                check=False,
+            )
+        return 1
 
     # Launch the GUI
     cfg = load_config()
