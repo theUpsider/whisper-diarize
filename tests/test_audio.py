@@ -381,7 +381,8 @@ class TestRealFfmpeg:
         time.sleep(1.0)
 
         with mock.patch("subprocess.run") as mr:
-            mr.return_value = mock.MagicMock(stdout="", stderr="", returncode=0)
+            mr.return_value = mock.MagicMock(
+                stdout="", stderr="", returncode=0)
             mixed = rec.stop()
 
         assert rec.state == RecorderState.STOPPED

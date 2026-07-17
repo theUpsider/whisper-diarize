@@ -69,9 +69,11 @@ class TestEndToEndPipeline:
         # ------------------------------------------------------------------
         fake_sources = [
             {"name": "fake_mic", "description": "Fake Mic"},
-            {"name": "fake_monitor", "description": "Fake Monitor", "monitor_of_sink": "fake_sink"},
+            {"name": "fake_monitor", "description": "Fake Monitor",
+                "monitor_of_sink": "fake_sink"},
         ]
-        pactl_proc = mock.MagicMock(stdout=json.dumps(fake_sources), stderr="", returncode=0)
+        pactl_proc = mock.MagicMock(stdout=json.dumps(
+            fake_sources), stderr="", returncode=0)
         monkeypatch.setattr("subprocess.run", lambda *a, **kw: pactl_proc)
 
         devices = list_devices()
@@ -153,15 +155,17 @@ class TestEndToEndPipeline:
         # ------------------------------------------------------------------
         fake_result = {
             "segments": [
-                {"text": "Hello world", "speaker": "SPEAKER_00", "start": 0.0, "end": 1.0},
-                {"text": "Test recording", "speaker": "SPEAKER_01", "start": 1.5, "end": 2.5},
+                {"text": "Hello world", "speaker": "SPEAKER_00",
+                    "start": 0.0, "end": 1.0},
+                {"text": "Test recording", "speaker": "SPEAKER_01",
+                    "start": 1.5, "end": 2.5},
             ]
         }
         fake_transcript = "Source files:\n\nTranscript:\n\n[00:00:00.000 - 00:00:01.000] SPEAKER_00: Hello world\n"
 
         with mock.patch("recorder.pipeline.transcribe_and_diarize", return_value=fake_result), \
-             mock.patch("recorder.pipeline.render_transcript", return_value="mock transcript"), \
-             mock.patch("recorder.pipeline.write_outputs") as mock_write:
+                mock.patch("recorder.pipeline.render_transcript", return_value="mock transcript"), \
+                mock.patch("recorder.pipeline.write_outputs") as mock_write:
             mock_write.return_value = (Path("/tmp/t.txt"), Path("/tmp/t.json"))
             tcfg = TranscriptionConfig(
                 hf_token="hf_test_token",
@@ -256,12 +260,14 @@ class TestConfigDeviceIntegration:
         # Fake pactl returns matching devices
         fake_sources = [
             {"name": "my_mic", "description": "My Mic"},
-            {"name": "my_monitor", "description": "My Monitor", "monitor_of_sink": "sink"},
+            {"name": "my_monitor", "description": "My Monitor",
+                "monitor_of_sink": "sink"},
             {"name": "other_mic", "description": "Other"},
         ]
         monkeypatch.setattr(
             "subprocess.run",
-            lambda *a, **kw: mock.MagicMock(stdout=json.dumps(fake_sources), stderr="", returncode=0),
+            lambda *a, **kw: mock.MagicMock(stdout=json.dumps(
+                fake_sources), stderr="", returncode=0),
         )
 
         # Load config and verify device exists in discovered list

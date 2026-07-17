@@ -172,7 +172,8 @@ class TestFilters:
         ])
         monkeypatch.setattr(
             subprocess, "run",
-            lambda *a, **kw: mock.MagicMock(stdout=output, stderr="", returncode=0),
+            lambda *a, **kw: mock.MagicMock(stdout=output,
+                                            stderr="", returncode=0),
         )
         mics = get_mics()
         assert len(mics) == 1
@@ -184,7 +185,8 @@ class TestFilters:
         ])
         monkeypatch.setattr(
             subprocess, "run",
-            lambda *a, **kw: mock.MagicMock(stdout=output, stderr="", returncode=0),
+            lambda *a, **kw: mock.MagicMock(stdout=output,
+                                            stderr="", returncode=0),
         )
         monitors = get_monitors()
         assert len(monitors) == 1

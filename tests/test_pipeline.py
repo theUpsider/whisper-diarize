@@ -61,14 +61,16 @@ class TestTranscriptionRunner:
 
         # Mock transcribe_and_diarize to return a dummy result
         with mock.patch("recorder.pipeline.transcribe_and_diarize") as mock_trans:
-            fake_result = {"segments": [{"text": "hello", "speaker": "SPEAKER_00", "start": 0.0, "end": 1.0}]}
+            fake_result = {"segments": [
+                {"text": "hello", "speaker": "SPEAKER_00", "start": 0.0, "end": 1.0}]}
             mock_trans.return_value = fake_result
 
             with mock.patch("recorder.pipeline.render_transcript") as mock_render:
                 mock_render.return_value = "hello transcript"
 
                 with mock.patch("recorder.pipeline.write_outputs") as mock_write:
-                    mock_write.return_value = (Path("/tmp/t.txt"), Path("/tmp/t.json"))
+                    mock_write.return_value = (
+                        Path("/tmp/t.txt"), Path("/tmp/t.json"))
 
                     runner.start(fake_audio_path, temp_dir)
 
@@ -82,7 +84,8 @@ class TestTranscriptionRunner:
                     # Progress callbacks fired
                     assert len(progress_calls) >= 2
                     stages = [s for s, _ in progress_calls]
-                    assert "Transcribing" in stages or any("Transcribing" in s for s in stages)
+                    assert "Transcribing" in stages or any(
+                        "Transcribing" in s for s in stages)
 
                     # Done callback fired with result
                     assert len(done_calls) == 1

@@ -7,17 +7,18 @@ Two tools in one repo:
 
 ## Requirements
 
-| What | Why |
-|---|---|
-| **Python ≥ 3.10** | Project runtime |
-| **[uv](https://docs.astral.sh/uv/)** | Package manager / virtualenv |
-| **ffmpeg + ffprobe** | Audio extraction, concatenation, encoding |
-| **PulseAudio or PipeWire** | Required by `whisper-recorder` for audio capture + device list |
-| **tkinter** (python3-tk) | Required by `whisper-recorder` GUI |
-| **GPU** recommended (CUDA) | CPU works but is slow |
-| **Hugging Face token** | Needed for diarization + model access |
+| What                                 | Why                                                            |
+| ------------------------------------ | -------------------------------------------------------------- |
+| **Python ≥ 3.10**                    | Project runtime                                                |
+| **[uv](https://docs.astral.sh/uv/)** | Package manager / virtualenv                                   |
+| **ffmpeg + ffprobe**                 | Audio extraction, concatenation, encoding                      |
+| **PulseAudio or PipeWire**           | Required by `whisper-recorder` for audio capture + device list |
+| **tkinter** (python3-tk)             | Required by `whisper-recorder` GUI                             |
+| **GPU** recommended (CUDA)           | CPU works but is slow                                          |
+| **Hugging Face token**               | Needed for diarization + model access                          |
 
 Accept user agreements on Hugging Face:
+
 - [pyannote/segmentation-3.0](https://hf.co/pyannote/segmentation-3.0)
 - [pyannote/speaker-diarization-3.1](https://hf.co/pyannote/speaker-diarization-3.1)
 - The Whisper model you pick (e.g. `large-v3`)
@@ -75,21 +76,21 @@ After running, input files are **moved** to `input_processed/`. Output lands in 
 
 ### Options
 
-| Flag | Default | Description |
-|---|---|---|
-| `--input-dir` | `./input` | Folder with `.mp4` files |
-| `--work-dir` | `./work` | Intermediate files (merged video, WAV) |
-| `--output-dir` | `./output` | Final transcript files |
-| `--language` | `de` | Language code |
-| `--model` | `large-v3` | Whisper model |
-| `--batch-size` | `8` | Batch size |
-| `--compute-type` | `float16` | `float16`, `float32`, or `int8` |
-| `--device` | _auto_ | `cuda` or `cpu` |
-| `--hf-token` | _env_ | Hugging Face token |
-| `--min-speakers` | — | Min speaker count |
-| `--max-speakers` | — | Max speaker count |
-| `--num-speakers` | — | Exact speaker count |
-| `--skip-concat` | — | Skip concat, use existing `work/<ts>/merged.wav` |
+| Flag             | Default    | Description                                      |
+| ---------------- | ---------- | ------------------------------------------------ |
+| `--input-dir`    | `./input`  | Folder with `.mp4` files                         |
+| `--work-dir`     | `./work`   | Intermediate files (merged video, WAV)           |
+| `--output-dir`   | `./output` | Final transcript files                           |
+| `--language`     | `de`       | Language code                                    |
+| `--model`        | `large-v3` | Whisper model                                    |
+| `--batch-size`   | `8`        | Batch size                                       |
+| `--compute-type` | `float16`  | `float16`, `float32`, or `int8`                  |
+| `--device`       | _auto_     | `cuda` or `cpu`                                  |
+| `--hf-token`     | _env_      | Hugging Face token                               |
+| `--min-speakers` | —          | Min speaker count                                |
+| `--max-speakers` | —          | Max speaker count                                |
+| `--num-speakers` | —          | Exact speaker count                              |
+| `--skip-concat`  | —          | Skip concat, use existing `work/<ts>/merged.wav` |
 
 ### Output
 
@@ -231,4 +232,3 @@ whisper-diarize/
 ├── output/                               # Transcripts per-run
 └── tests/                                # Test files
 ```
-
