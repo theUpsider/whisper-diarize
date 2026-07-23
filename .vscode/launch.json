@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug: Install desktop launcher",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "recorder.main",
+      "args": ["--install-desktop"],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "preLaunchTask": "Install: sync Python deps (uv sync)"
+    },
+    {
+      "name": "Debug: Uninstall desktop launcher",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "recorder.main",
+      "args": ["--uninstall-desktop"],
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Debug: whisper-recorder",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "recorder.main",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    },
+    {
+      "name": "Debug: whisper-transcribe",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "main",
+      "console": "integratedTerminal",
+      "justMyCode": true
+    }
+  ]
+}

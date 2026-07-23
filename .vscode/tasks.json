@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Install: sync Python deps (uv sync)",
+      "type": "shell",
+      "command": "uv",
+      "args": ["sync"],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Install: desktop launcher",
+      "type": "shell",
+      "command": "uv",
+      "args": ["run", "whisper-recorder", "--install-desktop"],
+      "group": "build",
+      "dependsOn": ["Install: sync Python deps (uv sync)"],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Uninstall: desktop launcher",
+      "type": "shell",
+      "command": "uv",
+      "args": ["run", "whisper-recorder", "--uninstall-desktop"],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ]
+}

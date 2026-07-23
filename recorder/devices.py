@@ -45,8 +45,18 @@ def list_devices() -> list[AudioDevice]:
     for src in sources:
         name = src.get("name", "")
         desc = src.get("description", name)
-        # monitor_of_sink is present (and non-null) for monitor sources
-        is_monitor = bool(src.get("monitor_of_sink"))
+        # Detection differs across pactl/pipewire-pulse versions:
+        # - old PulseAudio JSON: "monitor_of_sink" is present (non-null)
+        # - newer pipewire-pulse: no "monitor_of_sink" key at all; instead
+        #   "monitor_source" holds the sink it monitors, and
+        #   properties["device.class"] == "monitor"
+        props = src.get("properties") or {}
+        is_monitor = (
+            bool(src.get("monitor_of_sink"))
+            or bool(src.get("monitor_source"))
+            or props.get("device.class") == "monitor"
+            or name.endswith(".monitor")
+        )
         if name:
             devices.append(AudioDevice(
                 name=name, description=desc, is_monitor=is_monitor))

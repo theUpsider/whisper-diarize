@@ -92,6 +92,35 @@ class TestListDevices:
         assert mics[0].name == "alsa_input.usb"
         assert monitors[0].name == "alsa_output.pci.monitor"
 
+    def test_parses_monitor_pipewire_schema(self, monkeypatch) -> None:
+        """Newer pipewire-pulse omits monitor_of_sink entirely; monitor
+        sources are only identifiable via monitor_source / device.class."""
+        output = json.dumps([
+            {
+                "name": "alsa_input.usb",
+                "description": "USB Mic",
+                "monitor_source": "",
+                "properties": {"device.class": "sound"},
+            },
+            {
+                "name": "alsa_output.pci.iec958-stereo.monitor",
+                "description": "Monitor of Built-in Audio",
+                "monitor_source": "alsa_output.pci.iec958-stereo",
+                "properties": {"device.class": "monitor"},
+            },
+        ])
+
+        def _fake_run(*args, **kwargs):
+            return mock.MagicMock(stdout=output, stderr="", returncode=0)
+
+        monkeypatch.setattr(subprocess, "run", _fake_run)
+        devices = list_devices()
+        mics = [d for d in devices if not d.is_monitor]
+        monitors = [d for d in devices if d.is_monitor]
+        assert len(mics) == 1
+        assert len(monitors) == 1
+        assert monitors[0].name == "alsa_output.pci.iec958-stereo.monitor"
+
     def test_empty_list(self, monkeypatch) -> None:
         def _fake_run(*args, **kwargs):
             return mock.MagicMock(stdout="[]", stderr="", returncode=0)
