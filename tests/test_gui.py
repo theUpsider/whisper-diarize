@@ -18,6 +18,7 @@ import pytest
 
 from recorder.audio import AudioRecorder, RecorderState
 from recorder.config import AppConfig
+from recorder.devices import AudioDevice
 from recorder.gui import RecorderApp, _refresh_devices
 
 
@@ -76,9 +77,8 @@ class TestRefreshDevices:
         )
         mics, monitors = _refresh_devices()
         assert len(mics) == 1
-        assert len(monitors) == 1
+        assert monitors == []
         assert mics[0].name == "default"
-        assert monitors[0].name == "default"
 
 
 # ---------------------------------------------------------------------------
@@ -201,8 +201,36 @@ class TestButtonStates:
 class TestActions:
     """Test action methods wire correctly to the recorder."""
 
+    def test_default_system_source_uses_discovered_monitor(
+        self, app: RecorderApp
+    ) -> None:
+        app._config.mic_device = "default"
+        app._config.monitor_device = "default"
+        devices = (
+            [AudioDevice("test_mic", "Test microphone", False)],
+            [AudioDevice("test_output.monitor", "Monitor of Test output", True)],
+        )
+
+        with mock.patch("recorder.gui._refresh_devices", return_value=devices):
+            app._build_modal()
+
+        app._recorder = mock.MagicMock(spec=AudioRecorder)
+        app._recorder.state = RecorderState.IDLE
+        app._recorder.elapsed = 0.0
+
+        app._on_record()
+
+        app._recorder.start.assert_called_once_with(
+            "default", "test_output.monitor"
+        )
+
     def test_on_record_starts_recorder(self, app: RecorderApp) -> None:
-        app._build_modal()
+        devices = (
+            [AudioDevice("test_mic", "Test microphone", False)],
+            [AudioDevice("test_monitor", "Test monitor", True)],
+        )
+        with mock.patch("recorder.gui._refresh_devices", return_value=devices):
+            app._build_modal()
         app._recorder = mock.MagicMock(spec=AudioRecorder)
         app._recorder.state = RecorderState.IDLE
         app._recorder.elapsed = 0.0

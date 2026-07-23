@@ -304,15 +304,14 @@ class TestErrorRecovery:
         assert rec.state == RecorderState.IDLE
 
     def test_device_discovery_fallback(self) -> None:
-        """Test that _refresh_devices returns defaults on pactl failure."""
+        """A pactl failure must not present the default mic as a monitor."""
         from recorder.gui import _refresh_devices
 
         with mock.patch("recorder.gui.list_devices", side_effect=Exception("pactl missing")):
             mics, monitors = _refresh_devices()
             assert len(mics) == 1
             assert mics[0].name == "default"
-            assert len(monitors) == 1
-            assert monitors[0].name == "default"
+            assert monitors == []
 
     def test_config_recovery_from_corrupt_file(self, temp_dir: Path, monkeypatch) -> None:
         """Config loader recovers gracefully from corrupted JSON."""

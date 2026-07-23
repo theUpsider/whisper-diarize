@@ -13,6 +13,7 @@ from recorder.devices import (
     get_mics,
     get_monitors,
     list_devices,
+    resolve_monitor_source,
 )
 
 
@@ -220,3 +221,41 @@ class TestFilters:
         monitors = get_monitors()
         assert len(monitors) == 1
         assert monitors[0].name == "mon"
+
+
+class TestResolveMonitorSource:
+    def test_default_uses_default_sinks_monitor(self, monkeypatch) -> None:
+        monitors = [
+            AudioDevice("other_output.monitor", "Other output", True),
+            AudioDevice("default_output.monitor", "Default output", True),
+        ]
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: mock.MagicMock(
+                stdout="default_output\n", stderr="", returncode=0
+            ),
+        )
+
+        source = resolve_monitor_source("default", monitors)
+
+        assert source == "default_output.monitor"
+
+    def test_keeps_available_explicit_monitor(self, monkeypatch) -> None:
+        monitors = [
+            AudioDevice("configured.monitor", "Configured output", True),
+        ]
+        run = mock.MagicMock()
+        monkeypatch.setattr(subprocess, "run", run)
+
+        source = resolve_monitor_source("configured.monitor", monitors)
+
+        assert source == "configured.monitor"
+        run.assert_not_called()
+
+    def test_returns_none_without_monitors(self, monkeypatch) -> None:
+        run = mock.MagicMock()
+        monkeypatch.setattr(subprocess, "run", run)
+
+        assert resolve_monitor_source("default", []) is None
+        run.assert_not_called()

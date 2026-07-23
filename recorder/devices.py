@@ -76,3 +76,35 @@ def get_monitors(devices: list[AudioDevice] | None = None) -> list[AudioDevice]:
     if devices is None:
         devices = list_devices()
     return [d for d in devices if d.is_monitor]
+
+
+def resolve_monitor_source(
+    configured_source: str, monitors: list[AudioDevice]
+) -> str | None:
+    """Resolve a configured system-audio source to a real monitor source.
+
+    PulseAudio's ``default`` input is usually a microphone, not the monitor
+    of the default output sink.  Keep an explicitly configured monitor when
+    it still exists; otherwise prefer the default sink's monitor and finally
+    fall back to the first available monitor.
+    """
+    monitor_names = {device.name for device in monitors}
+    if configured_source != "default" and configured_source in monitor_names:
+        return configured_source
+    if not monitors:
+        return None
+
+    try:
+        proc = subprocess.run(
+            ["pactl", "get-default-sink"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        default_monitor = f"{proc.stdout.strip()}.monitor"
+        if default_monitor in monitor_names:
+            return default_monitor
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        pass
+
+    return monitors[0].name

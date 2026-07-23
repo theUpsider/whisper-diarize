@@ -18,7 +18,13 @@ from pynput.keyboard import HotKey
 
 from recorder.audio import AudioRecorder, RecorderState, RecorderStatus
 from recorder.config import AppConfig, load_config, save_config
-from recorder.devices import AudioDevice, get_mics, get_monitors, list_devices
+from recorder.devices import (
+    AudioDevice,
+    get_mics,
+    get_monitors,
+    list_devices,
+    resolve_monitor_source,
+)
 from recorder.hotkey import HotkeyManager, is_wayland
 from recorder.pipeline import TranscriptionRunner
 from main import TranscriptionConfig
@@ -57,16 +63,14 @@ SPECIAL_KEYSYMS = {
 # ---------------------------------------------------------------------------
 
 def _refresh_devices() -> tuple[list[AudioDevice], list[AudioDevice]]:
-    """Return (mics, monitors), falling back to [default] on failure."""
+    """Return (mics, monitors), falling back to the default mic on failure."""
     try:
         all_devs = list_devices()
         return get_mics(all_devs), get_monitors(all_devs)
     except Exception:
         default = AudioDevice(
             name="default", description="Default", is_monitor=False)
-        default_mon = AudioDevice(
-            name="default", description="Default Monitor", is_monitor=True)
-        return [default], [default_mon]
+        return [default], []
 
 
 def _tray_icon_image() -> Image.Image:
@@ -290,11 +294,14 @@ class RecorderApp:
         self._mic_combo.bind("<<ComboboxSelected>>", self._persist_settings)
 
         ttk.Label(row1, text="System:").pack(side="left")
-        self._monitor_var = tk.StringVar(value=self._config.monitor_device)
+        monitor_source = resolve_monitor_source(
+            self._config.monitor_device, monitors
+        ) or ""
+        self._monitor_var = tk.StringVar(value=monitor_source)
         self._monitor_combo = ttk.Combobox(
             row1, textvariable=self._monitor_var, state="readonly", width=35,
         )
-        self._monitor_combo["values"] = ["default"] + [d.name for d in monitors]
+        self._monitor_combo["values"] = [d.name for d in monitors]
         self._monitor_combo.pack(side="left", padx=(4, 0))
         self._monitor_combo.bind(
             "<<ComboboxSelected>>", self._persist_settings)
@@ -539,7 +546,13 @@ class RecorderApp:
         assert self._mic_var is not None
         assert self._monitor_var is not None
         mic = self._mic_var.get() or "default"
-        monitor = self._monitor_var.get() or "default"
+        monitor = self._monitor_var.get()
+        if not monitor:
+            messagebox.showerror(
+                "Recording Error",
+                "No system-audio monitor source is available.",
+            )
+            return
 
         self._current_mic_source = mic
         self._current_monitor_source = monitor
@@ -839,10 +852,12 @@ class RecorderApp:
                     self._mic_var.set("default")
             if hasattr(self, '_monitor_combo') and self._monitor_combo is not None:
                 assert self._monitor_var is not None
-                mon_names = ["default"] + [d.name for d in monitors]
+                mon_names = [d.name for d in monitors]
                 self._monitor_combo["values"] = mon_names
-                if self._monitor_var.get() not in mon_names:
-                    self._monitor_var.set("default")
+                monitor_source = resolve_monitor_source(
+                    self._monitor_var.get(), monitors
+                )
+                self._monitor_var.set(monitor_source or "")
             logger.info("Device lists refreshed: %d mics, %d monitors",
                         len(mics), len(monitors))
         except Exception:
