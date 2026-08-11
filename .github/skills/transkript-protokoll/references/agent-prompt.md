@@ -69,4 +69,4 @@ If the date or topic is missing, use `Protokoll.md` and `Protokoll.pdf`.
 
 ## Transcript
 
-{{TRANSKRIPT_HIER_EINFUEGEN}}
+{{INSERT_TRANSCRIPT_HERE}}
