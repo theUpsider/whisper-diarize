@@ -62,8 +62,8 @@ Omit empty optional sections. The `Hausaufgaben und Verantwortlichkeiten` sectio
 
 Prefer:
 
-- `Protokoll_<YYYY-MM-DD>_<kurzer-themen-slug>.md`
-- `Protokoll_<YYYY-MM-DD>_<kurzer-themen-slug>.pdf`
+- `Protokoll_<YYYY-MM-DD>_<short-topic-slug>.md`
+- `Protokoll_<YYYY-MM-DD>_<short-topic-slug>.pdf`
 
 If the date or topic is missing, use `Protokoll.md` and `Protokoll.pdf`.
 
