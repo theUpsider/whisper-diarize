@@ -1,87 +1,87 @@
 ---
 name: transkript-protokoll
-description: Erstellt aus eingefuegten oder hochgeladenen Gespraechs-, Meeting- oder Interviewtranskripten ein kompaktes, professionelles deutschsprachiges Besprechungsprotokoll und gibt es standardmaessig als herunterladbare Markdown- und PDF-Datei aus. Verwenden, wenn Nutzer ein Protokoll, Meetingprotokoll, Sitzungsprotokoll, Ergebnisprotokoll oder eine Aufgabenliste aus einem Transkript wuenschen. Verdichtet Wiederholungen und Smalltalk, ordnet Sprecher anhand direkter Hinweise und bekannten Teamkontexts bestmoeglich zu, trennt Beschluesse, Kernpunkte und offene Fragen und schliesst mit Hausaufgaben und Verantwortlichkeiten ab.
+description: Creates compact, professional German meeting minutes from pasted or uploaded conversation, meeting, or interview transcripts and returns them by default as downloadable Markdown and PDF files. Use when users want meeting minutes, a protocol, session notes, an outcome summary, or an action list from a transcript. Condenses repetition and small talk, assigns speakers from direct clues and known team context whenever possible, separates decisions, key points, and open questions, and ends with action items and responsibilities.
 ---
 
-# Transkript-Protokoll
+# Transcript Minutes
 
-Aus einem Transkript direkt ein kompaktes Ergebnisprotokoll erzeugen. Keine Rueckfragen stellen, wenn das Transkript ausreichend verwertbar ist. Fehlende Angaben neutral kennzeichnen.
+Create compact German meeting minutes directly from a transcript. Do not ask follow-up questions when the transcript is usable enough. Mark missing information neutrally.
 
-## Arbeitsablauf
+## Workflow
 
-1. Das gesamte Transkript lesen.
-2. Sprecher systematisch zuordnen:
-   - zuerst direkte Selbstvorstellungen, Namensnennungen und Ansprachen auswerten;
-   - danach Projektinhalte, Rollen, typische Themen, Antwortbeziehungen und Reihenfolge der Redebeitraege abgleichen;
-   - bei KATALYST-Teammeetings zusaetzlich `references/team-sprecherzuordnung.md` verwenden;
-   - Zuordnungen ueber das gesamte Transkript auf Konsistenz pruefen.
-3. Smalltalk, Wiederholungen, Abschweifungen und rein technische Gespraechsfragmente entfernen.
-4. Inhalt in vier Kategorien ordnen:
-   - Ergebnisse und Beschluesse
-   - wesentliche besprochene Punkte
-   - offene Fragen oder Entscheidungen
-   - Hausaufgaben und Verantwortlichkeiten
-5. Doppelte Aussagen zusammenfuehren und die Formulierungen verdichten.
-6. Das Protokoll anhand von `assets/protokoll-vorlage.md` erstellen.
-7. Dieselbe finale Fassung als UTF-8-Markdown-Datei und als PDF-Datei erzeugen.
-8. Die PDF visuell rendern und auf abgeschnittenen Text, fehlerhafte Tabellen, Ueberlagerungen und defekte Zeichen pruefen.
-9. Im Chat beide Download-Links ausgeben.
+1. Read the full transcript.
+2. Assign speakers systematically:
+   - first evaluate direct self-introductions, name mentions, and direct address;
+   - then compare project content, roles, typical topics, reply relationships, and speaking order;
+   - for KATALYST team meetings, also use `references/team-sprecherzuordnung.md`;
+   - check assignments for consistency across the full transcript.
+3. Remove small talk, repetition, digressions, and purely technical conversation fragments.
+4. Organize the content into four categories:
+   - outcomes and decisions
+   - key discussion points
+   - open questions or pending decisions
+   - action items and responsibilities
+5. Merge duplicate statements and tighten the wording.
+6. Create the minutes using `assets/protokoll-vorlage.md`.
+7. Produce the same final version as a UTF-8 Markdown file and as a PDF file.
+8. Visually render the PDF and check for clipped text, broken tables, overlaps, and corrupted characters.
+9. Return download links for both files in the chat.
 
-## Sprecherzuordnung
+## Speaker assignment
 
-- Sprecher aktiv und bestmoeglich zuordnen; nicht vorschnell bei anonymen Sprecherlabels bleiben.
-- Direkte Hinweise haben Vorrang vor Rollen- oder Themenprofilen.
-- Eine Zuordnung erst nach Abgleich mehrerer Beitraege festlegen.
-- Bei hoher Evidenz den Namen ohne Zusatz verwenden.
-- Bei mittlerer Evidenz im Metadatenhinweis `Name (Zuordnung wahrscheinlich)` verwenden.
-- Bei schwacher oder widerspruechlicher Evidenz das originale Sprecherlabel beibehalten.
-- Keine Namen erfinden und keine Zuordnung allein aus Stimme, Geschlecht oder allgemeinen Stereotypen ableiten.
-- Aufgaben nur dann einer Person zuordnen, wenn Transkript und Sprecherzuordnung gemeinsam ausreichend klar sind; sonst `Nicht zugeordnet` verwenden.
+- Actively assign speakers whenever possible; do not stay with anonymous speaker labels too quickly.
+- Direct clues take priority over role or topic profiles.
+- Finalize an assignment only after comparing multiple contributions.
+- With strong evidence, use the name without qualification.
+- With medium evidence, use `Name (Zuordnung wahrscheinlich)` in the metadata note.
+- With weak or conflicting evidence, keep the original speaker label.
+- Do not invent names or infer identity from voice, gender, or stereotypes.
+- Assign tasks to a person only when the transcript and speaker mapping are sufficiently clear together; otherwise use `Nicht zugeordnet`.
 
-## Verbindliche Qualitaetsregeln
+## Required quality rules
 
-- Neutral, sachlich und professionell auf Deutsch schreiben.
-- Auf ein Ergebnisprotokoll zielen, nicht auf eine chronologische Nacherzaehlung.
-- Typischer Umfang: etwa 1 bis 2 Seiten beziehungsweise 400 bis 900 Woerter. Nur bei sehr umfangreichen oder entscheidungsreichen Sitzungen darueber hinausgehen.
-- Keine Gespraechsbeitraege woertlich wiedergeben, ausser ein exakter Wortlaut ist entscheidend.
-- Nur ausdruecklich vereinbarte oder eindeutig aus dem Gespraech folgende Beschluesse als Beschluesse ausweisen.
-- Vorschlaege, Vermutungen und Diskussionsideen nicht als Entscheidungen darstellen.
-- Fehlende Fristen mit `Offen` kennzeichnen.
-- Offensichtliche Transkriptionsfehler still korrigieren, wenn die Bedeutung eindeutig ist. Unsichere Begriffe mit `[unklar]` markieren oder neutral umformulieren.
-- Sensiblen Smalltalk, private Nebengespraeche, abwertende Aussagen und irrelevante Produktwerbung weglassen.
-- Aufgaben konkret und handlungsorientiert formulieren: Verb + Gegenstand + erwartetes Ergebnis.
-- Die Sektion `Hausaufgaben und Verantwortlichkeiten` als letzte inhaltliche Sektion ausgeben.
-- Leere optionale Sektionen weglassen.
-- Markdown und PDF muessen inhaltlich identisch sein.
+- Write in neutral, factual, professional German.
+- Target outcome-oriented meeting minutes, not a chronological retelling.
+- Typical length: about 1 to 2 pages or roughly 400 to 900 words. Go beyond that only for very large or decision-heavy meetings.
+- Do not quote contributions verbatim unless exact wording is essential.
+- Mark something as a decision only when it was explicitly agreed or follows unambiguously from the conversation.
+- Do not present suggestions, assumptions, or discussion ideas as decisions.
+- Mark missing deadlines with `Offen`.
+- Quietly correct obvious transcription errors when the meaning is clear. Mark uncertain terms with `[unklar]` or rephrase them neutrally.
+- Omit sensitive small talk, private side conversations, disparaging statements, and irrelevant product promotion.
+- Phrase tasks concretely and actionably: verb + object + expected outcome.
+- Output the `Hausaufgaben und Verantwortlichkeiten` section as the last content section.
+- Omit empty optional sections.
+- Markdown and PDF must be identical in content.
 
-## Metadaten
+## Metadata
 
-Folgende Angaben uebernehmen, wenn sie aus Transkript oder Dateinamen hervorgehen:
+Carry over the following information when it is available from the transcript or file name:
 
-- Datum
-- Thema beziehungsweise Sitzungsname
-- Teilnehmende
-- Quelle beziehungsweise Transkriptdatei
-- naechster Termin
+- date
+- topic or meeting title
+- participants
+- source or transcript file
+- next meeting
 
-Fehlt eine zentrale Angabe, `Nicht angegeben` verwenden. Keine Rueckfrage nur wegen fehlender Metadaten stellen.
+If a key field is missing, use `Nicht angegeben`. Do not ask follow-up questions only because metadata is missing.
 
-Wenn mindestens eine Sprecherzuordnung nur wahrscheinlich ist, nach den Metadaten einen kurzen kursiven Hinweis zur Unsicherheit einfuegen. Keine ausfuehrliche Herleitung im Protokoll darstellen.
+If at least one speaker assignment is only probable, add a short italic uncertainty note after the metadata. Do not include a detailed justification in the minutes.
 
-## Ausgabedateien
+## Output files
 
-- Basisname: `Protokoll_<YYYY-MM-DD>_<kurzer-themen-slug>`
-- Wenn Datum oder Thema fehlen: `Protokoll`
-- Erzeugen:
-  - `<Basisname>.md`
-  - `<Basisname>.pdf`
-- Fuer die PDF-Erzeugung die verfuegbaren PDF- oder Dokumentwerkzeuge verwenden. Bei textlastigen Protokollen kann Markdown direkt sauber in PDF umgewandelt oder ueber ein Dokumentformat exportiert werden.
-- PDF nach der Erzeugung in Bilder rendern und visuell pruefen.
-- Nur die finalen Dateien als Download anbieten; Zwischenartefakte nicht verlinken.
-- Wenn keine PDF-Erstellung verfuegbar ist, die Markdown-Datei erzeugen und transparent angeben, dass die PDF nicht erstellt werden konnte.
+- Base name: `Protokoll_<YYYY-MM-DD>_<short-topic-slug>`
+- If the date or topic is missing: `Protokoll`
+- Generate:
+  - `<base-name>.md`
+  - `<base-name>.pdf`
+- Use the available PDF or document tooling for PDF generation. For text-heavy minutes, Markdown may be converted cleanly to PDF directly or exported through a document format.
+- Render the PDF to images after generation and inspect it visually.
+- Offer only the final files for download; do not link intermediate artifacts.
+- If PDF generation is unavailable, create the Markdown file and clearly state that the PDF could not be created.
 
-## Ressourcen
+## Resources
 
-- `assets/protokoll-vorlage.md`: verbindliche Grundstruktur fuer das Protokoll.
-- `references/team-sprecherzuordnung.md`: Teamrollen und Themenhinweise fuer KATALYST-Sprecherzuordnungen.
-- `references/agent-prompt.md`: eigenstaendiger Prompt fuer einen KI-Agenten oder eine andere Automatisierung.
+- `assets/protokoll-vorlage.md`: required base structure for the minutes.
+- `references/team-sprecherzuordnung.md`: team roles and topic hints for KATALYST speaker assignment.
+- `references/agent-prompt.md`: standalone prompt for an AI agent or other automation.

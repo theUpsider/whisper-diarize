@@ -1,25 +1,25 @@
-# Teamkontext fuer Sprecherzuordnungen
+# Team context for speaker assignment
 
-Diese Angaben sind Hinweise fuer KATALYST-Teammeetings. Sie sind keine Garantie fuer die Sprecheridentitaet und muessen mit dem konkreten Transkript abgeglichen werden.
+These notes are hints for KATALYST team meetings. They are not proof of speaker identity and must be checked against the actual transcript.
 
-| Name | Rolle | Typische Themenhinweise |
+| Name | Role | Typical topic hints |
 |---|---|---|
-| Matthias Becker | Projektleitung / Chef | Projektleitung, Freigaben, strategische Entscheidungen, Gesamtkoordination |
-| Jim | E13, Didaktiker | Didaktik, Lehr-Lern-Konzepte, Ontologien, Metadatenmodelle, Dublin Core, fachlich-didaktische Strukturierung |
-| Dimi | E13, Programmierer | Referenzpruefung, Softwareentwicklung, GROBID, lokale Sprachmodelle, Modellintegration, technische Fehlerbehebung |
-| Julian | E13, Programmierer | DataForge, Ontologien und technische Modellierung, YAML, automatisierte Visualisierungen, Produktdokumentation |
-| David | E13, Programmierer | Gexam, Systematic Mapping Study, Zotero-Erweiterungen, Architektur, BFF, Stakeholderanalyse, Infrastruktur |
-| Kevin | E13, Programmierer | Sprachverarbeitung, Agentenframeworks, lokale Modelle, Prototypen und technische Evaluation |
-| Lukas | E10, Programmierer | EduGame, Figma-Prototypen, Frontend, UI und Spieleplattform |
-| Defne | E10, Programmiererin | FactTrack, Figma, Carbon Design, Frontend und UI |
-| Steven | E10, Programmierer | Softwareentwicklung; konkrete Themen aus dem jeweiligen Transkript ableiten |
+| Matthias Becker | Project lead / manager | project leadership, approvals, strategic decisions, overall coordination |
+| Jim | E13, instructional designer | didactics, teaching and learning concepts, ontologies, metadata models, Dublin Core, instructional structuring |
+| Dimi | E13, developer | reference checking, software development, GROBID, local language models, model integration, technical troubleshooting |
+| Julian | E13, developer | DataForge, ontologies and technical modeling, YAML, automated visualizations, product documentation |
+| David | E13, developer | Gexam, systematic mapping study, Zotero extensions, architecture, BFF, stakeholder analysis, infrastructure |
+| Kevin | E13, developer | language processing, agent frameworks, local models, prototypes, and technical evaluation |
+| Lukas | E10, developer | EduGame, Figma prototypes, frontend, UI, and gaming platform |
+| Defne | E10, developer | FactTrack, Figma, Carbon Design, frontend, and UI |
+| Steven | E10, developer | software development; infer concrete topics from the transcript |
 
-## Regeln zur Anwendung
+## Usage rules
 
-1. Direkte Namensnennungen, Selbstvorstellungen und Ansprachen haben Vorrang vor diesem Rollenprofil.
-2. Projekt- und Themenkontext als Indiz verwenden, nicht als alleinigen Beweis.
-3. Sprecher ueber mehrere laengere Beitraege hinweg konsistent pruefen. Ein einzelner Satz darf keine komplette Zuordnung bestimmen.
-4. Rollen und Entgeltgruppen nicht in das Protokoll aufnehmen, sofern sie fuer den Inhalt nicht relevant sind.
-5. Bei guter Evidenz den Namen zuordnen. Bei mittlerer Evidenz den Namen mit dem Hinweis `Zuordnung wahrscheinlich` kennzeichnen.
-6. Bei widerspruechlicher oder schwacher Evidenz das Sprecherlabel beibehalten.
-7. Niemals eine Person allein aufgrund des Geschlechts, der Stimme oder eines Stereotyps zuordnen.
+1. Direct name mentions, self-introductions, and direct address take priority over this role profile.
+2. Use project and topic context as a hint, not as sole proof.
+3. Check speakers consistently across multiple longer contributions. A single sentence must not determine a full assignment.
+4. Do not include roles or pay grades in the minutes unless they are relevant to the content.
+5. With strong evidence, assign the name. With medium evidence, mark the name with `Zuordnung wahrscheinlich`.
+6. With conflicting or weak evidence, keep the speaker label.
+7. Never assign a person solely based on gender, voice, or stereotypes.

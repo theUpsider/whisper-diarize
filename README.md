@@ -175,15 +175,15 @@ Global hotkeys (Ctrl+Alt+R) **do not work on Wayland**. The app still runs — j
 
 ---
 
-## Generate a meeting protocol (Besprechungsprotokoll)
+## Generate meeting minutes
 
-This repository includes the **`transkript-protokoll`** skill (`.github/skills/transkript-protokoll/SKILL.md`) — a reusable agent skill that turns the final transcript into a compact, professional German meeting protocol (Markdown + PDF).
+This repository includes the **`transkript-protokoll`** skill (`.github/skills/transkript-protokoll/SKILL.md`) — a reusable agent skill that turns the final transcript into compact, professional German meeting minutes (Markdown + PDF).
 
 ### Using the skill with Copilot
 
 The skill is auto-discovered by GitHub Copilot agents working in this workspace. After running transcription, ask any agent:
 
-> "Use the transkript-protokoll skill on output/final_transcript.txt to generate a protocol."
+> "Use the transkript-protokoll skill on output/final_transcript.txt to generate meeting minutes."
 
 The agent will:
 
