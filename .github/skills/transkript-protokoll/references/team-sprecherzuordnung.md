@@ -20,6 +20,6 @@ These notes are hints for KATALYST team meetings. They are not proof of speaker 
 2. Use project and topic context as a hint, not as sole proof.
 3. Check speakers consistently across multiple longer contributions. A single sentence must not determine a full assignment.
 4. Do not include roles or pay grades in the minutes unless they are relevant to the content.
-5. With strong evidence, assign the name. With medium evidence, mark the name with `Zuordnung wahrscheinlich`.
+5. With strong evidence, assign the name. With medium evidence, mark it as `Name (Zuordnung wahrscheinlich)` using that exact German output label.
 6. With conflicting or weak evidence, keep the speaker label.
 7. Never assign a person solely based on gender, voice, or stereotypes.
