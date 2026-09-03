@@ -617,6 +617,8 @@ class RecorderApp:
         base_out = Path(self._config.output_dir) / ts
         base_out.mkdir(parents=True, exist_ok=True)
         self._output_dir = base_out
+        audio_output = base_out / self._mixed_path.name
+        shutil.copy2(self._mixed_path, audio_output)
 
         tcfg = TranscriptionConfig(
             hf_token=self._config.hf_token,
@@ -656,7 +658,7 @@ class RecorderApp:
             progress_callback=progress,
             done_callback=done,
         )
-        self._transcriber.start(self._mixed_path, base_out)
+        self._transcriber.start(audio_output, base_out)
 
     def _on_open_folder(self) -> None:
         if self._output_dir and self._output_dir.exists():

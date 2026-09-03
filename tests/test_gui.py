@@ -281,6 +281,23 @@ class TestActions:
             app._on_transcribe()
             mw.assert_called_once()
 
+    def test_on_transcribe_copies_audio_to_output_dir(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        app._config.output_dir = str(tmp_path / "outputs")
+        app._mixed_path = tmp_path / "recording.wav"
+        app._mixed_path.write_bytes(b"wav data")
+
+        fake_runner = mock.MagicMock()
+        with mock.patch("recorder.gui.TranscriptionRunner", return_value=fake_runner):
+            with mock.patch("recorder.gui.time.strftime", return_value="2026-09-03_090203"):
+                app._on_transcribe()
+
+        audio_output = tmp_path / "outputs" / "2026-09-03_090203" / "recording.wav"
+        assert audio_output.read_bytes() == b"wav data"
+        fake_runner.start.assert_called_once_with(audio_output, audio_output.parent)
+
     def test_hide_modal_releases_root(self, app: RecorderApp) -> None:
         app._build_modal()
         app._recorder = mock.MagicMock(spec=AudioRecorder)
