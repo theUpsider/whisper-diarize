@@ -136,6 +136,8 @@ uv run whisper-recorder
 - Press **Ctrl+Alt+R** (configurable) to toggle the recording modal
 - Select mic and system-audio sources from dropdowns
 - Hit **Record** → **Pause** (mic-only) / **Resume** → **Stop** → **Transcribe**
+- **Transcribe** stays available in the idle, stopped, finished, and error states, so a transcription can be repeated (for example with another model or language)
+- Pick an entry from the **Recent** dropdown to load a saved session — its audio can then be re-transcribed in place; the 📂 button next to it opens the session folder
 - Transcripts land in `~/WhisperRecordings/<timestamp>/`
 
 ### Desktop launcher (Linux)

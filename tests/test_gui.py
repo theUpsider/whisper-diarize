@@ -62,6 +62,12 @@ def app(cfg: AppConfig) -> RecorderApp:
     return app
 
 
+def _button_texts(app: RecorderApp) -> list[str]:
+    """Return the labels of the buttons currently shown in the modal."""
+    assert app._button_frame is not None
+    return [str(w.cget("text")) for w in app._button_frame.winfo_children()]
+
+
 # ---------------------------------------------------------------------------
 # Device refresh helper
 # ---------------------------------------------------------------------------
@@ -191,6 +197,26 @@ class TestButtonStates:
         status = app._status_var.get()
         assert "Error" in status
         assert "Test failure" in status
+
+    def test_transcribe_button_available_in_idle_state(
+        self, app: RecorderApp
+    ) -> None:
+        app._build_modal()
+        assert any("Transcribe" in t for t in _button_texts(app))
+
+    def test_transcribe_button_available_after_transcription(
+        self, app: RecorderApp
+    ) -> None:
+        app._build_modal()
+        app._update_buttons_done()
+        assert any("Transcribe" in t for t in _button_texts(app))
+
+    def test_transcribe_button_available_after_error(
+        self, app: RecorderApp
+    ) -> None:
+        app._build_modal()
+        app._update_buttons_error("boom")
+        assert any("Transcribe" in t for t in _button_texts(app))
 
 
 # ---------------------------------------------------------------------------
@@ -380,6 +406,27 @@ class TestNotifyAndAutoOpen:
         notify.assert_called_once()
         open_folder.assert_not_called()
 
+    def test_done_callback_keeps_session_for_retranscribe(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        app._config.auto_open_folder = False
+        app._mixed_path = tmp_path / "rec.wav"
+        app._mixed_path.touch()
+
+        fake_runner = mock.MagicMock()
+        with mock.patch("recorder.gui.TranscriptionRunner", return_value=fake_runner) as runner_cls, \
+                mock.patch.object(app, "_notify_transcription_done"):
+            app._on_transcribe()
+            done_callback = runner_cls.call_args.kwargs["done_callback"]
+            done_callback({"segments": []}, None)
+            app._root.update()
+
+        assert app._loaded_session == app._output_dir
+        assert app._loaded_audio == app._output_dir / "rec.wav"
+        assert app._mixed_path is None
+        assert any("Transcribe" in t for t in _button_texts(app))
+
 
 class TestRecentRecordings:
     """Test the recent-recordings dropdown."""
@@ -430,20 +477,96 @@ class TestRecentRecordings:
         assert app._recent_paths == []
         assert list(app._recent_combo["values"]) == []
 
-    def test_selecting_entry_opens_folder(
+    def test_selecting_entry_loads_session(
         self, app: RecorderApp, tmp_path: Path
     ) -> None:
         app._config.output_dir = str(tmp_path)
         app._build_modal()
         target = tmp_path / "2024-01-01_000000"
         target.mkdir()
+        audio = target / "recording.wav"
+        audio.write_bytes(b"wav data")
         app._refresh_recent_recordings()
 
         app._recent_combo.current(0)
-        with mock.patch("recorder.gui.subprocess.run") as run:
+        app._on_recent_selected()
+
+        assert app._loaded_session == target
+        assert app._loaded_audio == audio
+        assert app._output_dir == target
+        assert "Loaded" in app._status_var.get()
+        assert any("Transcribe" in t for t in _button_texts(app))
+
+    def test_selecting_entry_without_audio_warns(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+        (tmp_path / "2024-01-01_000000").mkdir()
+        app._refresh_recent_recordings()
+
+        app._recent_combo.current(0)
+        with mock.patch("tkinter.messagebox.showwarning") as mw:
             app._on_recent_selected()
-            run.assert_called_once_with(
-                ["xdg-open", str(target)], check=False)
+            mw.assert_called_once()
+
+        assert app._loaded_session is None
+        assert app._loaded_audio is None
+
+    def test_recent_open_folder_opens_selected_session(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+        target = tmp_path / "2024-01-01_000000"
+        target.mkdir()
+        (target / "recording.wav").write_bytes(b"wav data")
+        app._refresh_recent_recordings()
+
+        app._recent_combo.current(0)
+        app._on_recent_selected()
+        with mock.patch("recorder.gui.subprocess.run") as run:
+            app._on_recent_open_folder()
+            run.assert_called_once_with(["xdg-open", str(target)], check=False)
+
+    def test_selecting_entry_while_recording_warns(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._config.output_dir = str(tmp_path)
+        app._build_modal()
+        target = tmp_path / "2024-01-01_000000"
+        target.mkdir()
+        (target / "recording.wav").write_bytes(b"wav data")
+        app._refresh_recent_recordings()
+
+        app._recorder = mock.MagicMock(spec=AudioRecorder)
+        app._recorder.state = RecorderState.RECORDING
+        app._recent_combo.current(0)
+        with mock.patch("tkinter.messagebox.showwarning") as mw:
+            app._on_recent_selected()
+            mw.assert_called_once()
+
+        assert app._loaded_session is None
+
+    def test_on_transcribe_uses_loaded_session_in_place(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        session = tmp_path / "2024-01-01_000000"
+        session.mkdir()
+        audio = session / "recording.wav"
+        audio.write_bytes(b"wav data")
+        app._loaded_session = session
+        app._loaded_audio = audio
+        app._output_dir = session
+
+        fake_runner = mock.MagicMock()
+        with mock.patch("recorder.gui.TranscriptionRunner", return_value=fake_runner), \
+                mock.patch("recorder.gui.shutil.copy2") as copy2:
+            app._on_transcribe()
+
+        copy2.assert_not_called()
+        fake_runner.start.assert_called_once_with(audio, session)
 
     def test_update_buttons_done_refreshes_recent(
         self, app: RecorderApp, tmp_path: Path

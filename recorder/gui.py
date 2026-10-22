@@ -59,6 +59,28 @@ SPECIAL_KEYSYMS = {
 
 
 # ---------------------------------------------------------------------------
+# Session helpers
+# ---------------------------------------------------------------------------
+
+# Audio/video containers that can be re-transcribed from a saved session.
+SESSION_AUDIO_SUFFIXES = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".mp4"}
+
+
+def _find_session_audio(session_dir: Path) -> Path | None:
+    """Return the newest audio file inside a session directory, if any."""
+    try:
+        candidates = [
+            p for p in session_dir.iterdir()
+            if p.is_file() and p.suffix.lower() in SESSION_AUDIO_SUFFIXES
+        ]
+    except OSError:
+        return None
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+# ---------------------------------------------------------------------------
 # Device refresh helper
 # ---------------------------------------------------------------------------
 
@@ -100,6 +122,9 @@ class RecorderApp:
         self._transcriber: TranscriptionRunner | None = None
         self._mixed_path: Path | None = None
         self._output_dir: Path | None = None
+        # Session loaded from the "Recent" list; transcribable like a recording.
+        self._loaded_session: Path | None = None
+        self._loaded_audio: Path | None = None
         self._timer_job: str | None = None
 
         # Build the hidden root window
@@ -412,6 +437,10 @@ class RecorderApp:
         self._recent_combo.pack(side="left", padx=(4, 0), fill="x", expand=True)
         self._recent_combo.bind(
             "<<ComboboxSelected>>", self._on_recent_selected)
+        ttk.Button(
+            recent_frame, text="📂", width=3,
+            command=self._on_recent_open_folder,
+        ).pack(side="left", padx=(4, 0))
         self._refresh_recent_recordings()
 
         self._update_buttons_idle()
@@ -440,20 +469,38 @@ class RecorderApp:
         for w in self._button_frame.winfo_children():
             w.destroy()
 
-    def _update_buttons_idle(self) -> None:
+    def _update_buttons_idle(self, status: str | None = None) -> None:
         self._clear_buttons()
         assert self._status_var is not None
         assert self._timer_var is not None
         assert self._button_frame is not None
-        self._status_var.set("Ready")
+        self._status_var.set(status or self._idle_status())
         self._timer_var.set("00:00:00")
 
         ttk.Button(
             self._button_frame, text="●  Record", command=self._on_record,
         ).pack(side="left", padx=(0, 8))
+        self._add_transcribe_button()
+        if self._loaded_session is not None:
+            ttk.Button(
+                self._button_frame, text="📂  Open Folder",
+                command=self._on_open_folder,
+            ).pack(side="left", padx=(8, 0))
         ttk.Button(
             self._button_frame, text="Close", command=self._hide_modal,
         ).pack(side="right")
+
+    def _add_transcribe_button(self) -> None:
+        """Add the Transcribe button to the current button row."""
+        assert self._button_frame is not None
+        ttk.Button(
+            self._button_frame, text="📝  Transcribe", command=self._on_transcribe,
+        ).pack(side="left", padx=(0, 8))
+
+    def _idle_status(self) -> str:
+        if self._loaded_session is not None:
+            return f"Loaded: {self._loaded_session.name}"
+        return "Ready"
 
     def _update_buttons_recording(self) -> None:
         self._clear_buttons()
@@ -489,9 +536,7 @@ class RecorderApp:
         hours, mins = divmod(mins, 60)
         self._status_var.set(f"Stopped — {hours:02d}:{mins:02d}:{secs:02d}")
 
-        ttk.Button(
-            self._button_frame, text="📝  Transcribe", command=self._on_transcribe,
-        ).pack(side="left", padx=(0, 8))
+        self._add_transcribe_button()
         ttk.Button(
             self._button_frame, text="🗑  Discard", command=self._on_discard,
         ).pack(side="left", padx=(0, 8))
@@ -517,6 +562,7 @@ class RecorderApp:
         self._progress.pack_forget()
         self._status_var.set("Done!")
 
+        self._add_transcribe_button()
         ttk.Button(
             self._button_frame, text="📂  Open Folder", command=self._on_open_folder,
         ).pack(side="left", padx=(0, 8))
@@ -534,6 +580,7 @@ class RecorderApp:
         self._progress.pack_forget()
         self._status_var.set(f"Error: {msg}")
 
+        self._add_transcribe_button()
         ttk.Button(
             self._button_frame, text="New Recording", command=self._on_new_recording,
         ).pack(side="left")
@@ -563,6 +610,7 @@ class RecorderApp:
             messagebox.showerror("Recording Error", str(exc))
             return
 
+        self._clear_loaded_session()
         self._update_buttons_recording()
         self._start_timer()
         self._start_meter()
@@ -596,29 +644,53 @@ class RecorderApp:
     def _on_discard(self) -> None:
         self._recorder.discard()
         self._mixed_path = None
+        self._clear_loaded_session()
         self._update_buttons_idle()
 
     def _on_new_recording(self) -> None:
         if self._recorder.state != RecorderState.IDLE:
             self._recorder.discard()
         self._mixed_path = None
+        self._clear_loaded_session()
         self._update_buttons_idle()
 
+    def _clear_loaded_session(self) -> None:
+        self._loaded_session = None
+        self._loaded_audio = None
+
+    def _transcribe_target(self) -> tuple[Path, Path | None] | None:
+        """Return (audio to transcribe, existing session dir or None)."""
+        if self._mixed_path is not None and self._mixed_path.exists():
+            return self._mixed_path, None
+        if self._loaded_audio is not None and self._loaded_audio.exists():
+            return self._loaded_audio, self._loaded_session
+        return None
+
     def _on_transcribe(self) -> None:
-        if self._mixed_path is None or not self._mixed_path.exists():
+        target = self._transcribe_target()
+        if target is None:
             messagebox.showwarning(
-                "No Recording", "No recording to transcribe.")
+                "No Recording",
+                "No recording to transcribe.\n"
+                "Record something or pick a session from the Recent list.",
+            )
             return
+        audio_source, session_dir = target
 
         self._update_buttons_transcribing()
 
-        # Determine output directory
-        ts = time.strftime("%Y-%m-%d_%H%M%S")
-        base_out = Path(self._config.output_dir) / ts
+        # Re-transcribe inside the loaded session; new recordings get a new dir.
+        if session_dir is not None:
+            base_out = session_dir
+            audio_output = base_out / audio_source.name
+        else:
+            ts = time.strftime("%Y-%m-%d_%H%M%S")
+            base_out = Path(self._config.output_dir) / ts
+            audio_output = base_out / audio_source.name
         base_out.mkdir(parents=True, exist_ok=True)
         self._output_dir = base_out
-        audio_output = base_out / self._mixed_path.name
-        shutil.copy2(self._mixed_path, audio_output)
+        if audio_source != audio_output:
+            shutil.copy2(audio_source, audio_output)
 
         tcfg = TranscriptionConfig(
             hf_token=self._config.hf_token,
@@ -648,10 +720,8 @@ class RecorderApp:
                     error.splitlines()[-1]))
                 logger.error("Transcription failed:\n%s", error)
             else:
-                self._root.after(0, self._update_buttons_done)
-                self._notify_transcription_done()
-                if self._config.auto_open_folder:
-                    self._root.after(0, self._on_open_folder)
+                self._root.after(
+                    0, lambda: self._finish_transcription(base_out, audio_output))
 
         self._transcriber = TranscriptionRunner(
             config=tcfg,
@@ -659,6 +729,16 @@ class RecorderApp:
             done_callback=done,
         )
         self._transcriber.start(audio_output, base_out)
+
+    def _finish_transcription(self, session_dir: Path, audio_path: Path) -> None:
+        """Keep the finished session loaded so Transcribe stays usable."""
+        self._loaded_session = session_dir
+        self._loaded_audio = audio_path
+        self._mixed_path = None
+        self._update_buttons_done()
+        self._notify_transcription_done()
+        if self._config.auto_open_folder:
+            self._on_open_folder()
 
     def _on_open_folder(self) -> None:
         if self._output_dir and self._output_dir.exists():
@@ -682,8 +762,44 @@ class RecorderApp:
         index = self._recent_combo.current()
         if index < 0 or index >= len(self._recent_paths):
             return
-        subprocess.run(
-            ["xdg-open", str(self._recent_paths[index])], check=False)
+        self._load_session(self._recent_paths[index])
+
+    def _on_recent_open_folder(self) -> None:
+        """Open the folder of the selected (or most recent) session."""
+        session: Path | None = None
+        if self._recent_combo is not None:
+            index = self._recent_combo.current()
+            if 0 <= index < len(self._recent_paths):
+                session = self._recent_paths[index]
+        if session is None:
+            session = self._loaded_session
+        if session is None and self._recent_paths:
+            session = self._recent_paths[0]
+        if session is not None and session.exists():
+            subprocess.run(["xdg-open", str(session)], check=False)
+
+    def _load_session(self, session_dir: Path) -> None:
+        """Load a saved session's audio so it can be (re-)transcribed."""
+        if self._recorder.state in (RecorderState.RECORDING, RecorderState.PAUSED):
+            messagebox.showwarning(
+                "Recording",
+                "Stop the current recording before loading a session.",
+            )
+            return
+
+        audio = _find_session_audio(session_dir)
+        if audio is None:
+            messagebox.showwarning(
+                "No Audio",
+                f"Session “{session_dir.name}” contains no audio file.",
+            )
+            return
+
+        self._mixed_path = None
+        self._loaded_session = session_dir
+        self._loaded_audio = audio
+        self._output_dir = session_dir
+        self._update_buttons_idle()
 
     def _notify_transcription_done(self) -> None:
         if shutil.which("notify-send"):
