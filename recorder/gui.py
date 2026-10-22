@@ -443,7 +443,7 @@ class RecorderApp:
         ).pack(side="left", padx=(4, 0))
         self._refresh_recent_recordings()
 
-        self._update_buttons_idle()
+        self._restore_button_state()
 
         # Force geometry negotiation before locking size/centering — without
         # this the window manager can map the Toplevel at its pre-content
@@ -468,6 +468,32 @@ class RecorderApp:
             return
         for w in self._button_frame.winfo_children():
             w.destroy()
+
+    def _restore_button_state(self) -> None:
+        """Build the button row matching the current recorder/session state.
+
+        The modal can be closed and reopened (hotkey, tray) at any time, so a
+        fresh modal must not assume the recorder is idle: a finished
+        recording stays in ``STOPPED`` until the user starts a new one.
+        """
+        if self._transcriber is not None and self._transcriber.running:
+            self._update_buttons_transcribing()
+            return
+
+        state = self._recorder.state
+        if state == RecorderState.RECORDING:
+            self._update_buttons_recording()
+            self._start_timer()
+            self._start_meter()
+        elif state == RecorderState.PAUSED:
+            self._update_buttons_paused()
+        elif state == RecorderState.STOPPED:
+            if self._mixed_path is None and self._loaded_session is not None:
+                self._update_buttons_done()
+            else:
+                self._update_buttons_stopped(self._recorder.elapsed)
+        else:
+            self._update_buttons_idle()
 
     def _update_buttons_idle(self, status: str | None = None) -> None:
         self._clear_buttons()
@@ -603,6 +629,12 @@ class RecorderApp:
 
         self._current_mic_source = mic
         self._current_monitor_source = monitor
+
+        if self._recorder.state == RecorderState.STOPPED:
+            # Finished recording left over from a prior session; release it so
+            # start() accepts the transition (STOPPED only allows discard()).
+            self._recorder.discard()
+            self._mixed_path = None
 
         try:
             self._recorder.start(mic, monitor)

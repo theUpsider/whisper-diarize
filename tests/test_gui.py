@@ -219,6 +219,64 @@ class TestButtonStates:
         assert any("Transcribe" in t for t in _button_texts(app))
 
 
+class TestModalReopen:
+    """Rebuilding the modal must reflect the real recorder state.
+
+    Regression: closing/minimizing the modal after a finished recording and
+    reopening it used to render idle buttons while the recorder was still
+    STOPPED, so clicking Record raised "Cannot start in state STOPPED".
+    """
+
+    def test_reopen_after_transcription_shows_done_buttons(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        session = tmp_path / "2024-01-01_000000"
+        session.mkdir()
+        app._recorder = mock.MagicMock(spec=AudioRecorder)
+        app._recorder.state = RecorderState.STOPPED
+        app._recorder.elapsed = 0.0
+        app._loaded_session = session
+        app._loaded_audio = session / "recording.wav"
+        app._mixed_path = None
+
+        app._hide_modal()
+        app._show_modal()
+
+        assert "Done" in app._status_var.get()
+        assert any("New Recording" in t for t in _button_texts(app))
+        assert not any("Record" in t and "New" not in t for t in _button_texts(app))
+
+    def test_reopen_while_stopped_shows_recording_actions(
+        self, app: RecorderApp, tmp_path: Path
+    ) -> None:
+        app._build_modal()
+        app._recorder = mock.MagicMock(spec=AudioRecorder)
+        app._recorder.state = RecorderState.STOPPED
+        app._recorder.elapsed = 30.0
+        app._mixed_path = tmp_path / "recording.wav"
+
+        app._hide_modal()
+        app._show_modal()
+
+        assert "Stopped" in app._status_var.get()
+        assert any("New Recording" in t for t in _button_texts(app))
+        assert any("Discard" in t for t in _button_texts(app))
+
+    def test_reopen_while_transcribing_shows_progress(
+        self, app: RecorderApp
+    ) -> None:
+        app._build_modal()
+        app._transcriber = mock.MagicMock()
+        app._transcriber.running = True
+
+        app._hide_modal()
+        app._show_modal()
+
+        assert "Transcribing" in app._status_var.get()
+        assert not any("Record" in t for t in _button_texts(app))
+
+
 # ---------------------------------------------------------------------------
 # Action wiring
 # ---------------------------------------------------------------------------
@@ -263,6 +321,26 @@ class TestActions:
 
         app._on_record()
         app._recorder.start.assert_called_once_with("test_mic", "test_monitor")
+
+    def test_on_record_discards_finished_recording_first(
+        self, app: RecorderApp
+    ) -> None:
+        devices = (
+            [AudioDevice("test_mic", "Test microphone", False)],
+            [AudioDevice("test_monitor", "Test monitor", True)],
+        )
+        with mock.patch("recorder.gui._refresh_devices", return_value=devices):
+            app._build_modal()
+        app._recorder = mock.MagicMock(spec=AudioRecorder)
+        app._recorder.state = RecorderState.STOPPED
+        app._recorder.elapsed = 0.0
+        app._mixed_path = Path("/tmp/work/recording.wav")
+
+        app._on_record()
+
+        app._recorder.discard.assert_called_once()
+        app._recorder.start.assert_called_once_with("test_mic", "test_monitor")
+        assert app._mixed_path is None
 
     def test_on_pause(self, app: RecorderApp) -> None:
         app._build_modal()
